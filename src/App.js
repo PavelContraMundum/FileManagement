@@ -1,25 +1,68 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useState } from 'react';
+import { useDropzone } from 'react-dropzone';
+import axios from 'axios';
 
-function App() {
+const FileUpload = () => {
+  const [file, setFile] = useState(null);
+  const [note, setNote] = useState("");
+  const [uploadedFileId, setUploadedFileId] = useState(null);
+
+  const onDrop = (acceptedFiles) => {
+    setFile(acceptedFiles[0]);
+  };
+
+  const { getRootProps, getInputProps } = useDropzone({ onDrop, accept: 'application/pdf' });
+
+  const handleUpload = async () => {
+    if (!file) {
+      alert("Please select a file first.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("note", note);
+
+    try {
+      const response = await axios.post("http://localhost:8080/upload", formData);
+      setUploadedFileId(response.data.file_id);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+    }
+  };
+
+  const handleViewFile = () => {
+    if (uploadedFileId) {
+      window.open(`http://localhost:8080/file/${uploadedFileId}`, "_blank");
+    }
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
+      <h2>Upload a PDF file</h2>
+      <div
+        {...getRootProps({ className: 'dropzone' })}
+        style={{
+          border: '2px dashed #cccccc',
+          padding: '20px',
+          textAlign: 'center',
+          cursor: 'pointer',
+          marginBottom: '10px'
+        }}
+      >
+        <input {...getInputProps()} />
+        {file ? <p>{file.name}</p> : <p>Drag and drop a file here, or click to select one</p>}
+      </div>
+      <textarea
+        placeholder="Add a note (optional)"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        style={{ width: '100%', marginBottom: '10px', padding: '10px' }}
+      />
+      <button onClick={handleUpload} style={{ marginRight: '10px' }}>Upload</button>
+      <button onClick={handleViewFile} disabled={!uploadedFileId}>View Uploaded File</button>
     </div>
   );
-}
+};
 
-export default App;
+export default FileUpload;
