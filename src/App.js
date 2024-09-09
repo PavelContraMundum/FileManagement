@@ -26,6 +26,8 @@ const FileUpload = () => {
     try {
       const response = await axios.post("http://localhost:8080/upload", formData);
       setUploadedFileId(response.data.file_id);
+      setFile(null);
+      setNote("");
     } catch (error) {
       console.error("Error uploading file:", error);
     }
