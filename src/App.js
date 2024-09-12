@@ -1,78 +1,60 @@
 import React, { useState } from 'react';
-import { useDropzone } from 'react-dropzone';
-import axios from 'axios';
-import FileList from './FileList';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import Login from './Login';
+import SideBar from './SideBar';
+import MainPage from './MainPage';
+import DocumentManagement from './DocumentManagement';
+import SidePanel from './SidePanel';
+import './App.css'; // Odkaz na CSS styly
 
-const FileUpload = () => {
-  const [file, setFile] = useState(null);
-  const [note, setNote] = useState("");
-  const [uploadedFileId, setUploadedFileId] = useState(null);
 
-  const onDrop = (acceptedFiles) => {
-    setFile(acceptedFiles[0]);
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token')); // Kontrola přihlášení
+  const [sidePanelVisible, setSidePanelVisible] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const handleLogin = (token) => {
+    setIsLoggedIn(true);
+    localStorage.setItem('token', token);
   };
 
-  const { getRootProps, getInputProps } = useDropzone({ onDrop, accept: 'application/pdf' });
-
-  const handleUpload = async () => {
-    if (!file) {
-      alert("Please select a file first.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("note", note);
-
-    try {
-      const response = await axios.post("http://localhost:8080/upload", formData);
-      setUploadedFileId(response.data.file_id);
-      setFile(null);
-      setNote("");
-    } catch (error) {
-      console.error("Error uploading file:", error);
-    }
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('token');
   };
 
-  const handleViewFile = () => {
-    if (uploadedFileId) {
-      window.open(`http://localhost:8080/file/${uploadedFileId}`, "_blank");
-    }
+  const toggleSidePanel = (file) => {
+    setSelectedFile(file);
+    setSidePanelVisible(!sidePanelVisible);
   };
 
   return (
-    <div>
-      <div style={{ padding: '20px', maxWidth: '600px', margin: '0 auto' }}>
-        <h2>Upload a PDF file</h2>
-        <div
-          {...getRootProps({ className: 'dropzone' })}
-          style={{
-            width: 580,
-            border: '2px dashed #cccccc',
-            padding: '20px',
-            textAlign: 'center',
-            cursor: 'pointer',
-            marginBottom: '10px',
+    <div className="app-container">
+      <Router>
+        {isLoggedIn ? (
+          <>
+            <SideBar />
+            <div className="main-content">
+              <Routes>
+                <Route path="/main-page" element={<MainPage />} />
+                <Route path="/document-management" element={<DocumentManagement toggleSidePanel={toggleSidePanel} />} />
+                <Route path="*" element={<Navigate to="/main-page" />} /> {/* Přesměrování na main-page */}
+              </Routes>
 
-          }}
-        >
-          <input {...getInputProps()} />
-          {file ? <p>{file.name}</p> : <p>Drag and drop a file here, or click to select one</p>}
-        </div>
-        <textarea
-          placeholder="Add a note (optional)"
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          style={{ width: '100%', marginBottom: '10px', padding: '10px' }}
-        />
-        <button onClick={handleUpload} style={{ marginRight: '10px' }}>Upload</button>
-        <button onClick={handleViewFile} disabled={!uploadedFileId}>View Uploaded File</button>
-      </div>
-      <div style={{ width: '1400px' }}>
-        <FileList />
-      </div>
+              {sidePanelVisible && (
+                <SidePanel file={selectedFile} onClose={() => setSidePanelVisible(false)} />
+              )}
+            </div>
+          </>
+        ) : (
+          <Routes>
+            <Route path="/login" element={<Login setToken={handleLogin} />} />
+            <Route path="*" element={<Navigate to="/login" />} /> {/* Přesměrování na login */}
+          </Routes>
+        )}
+      </Router>
     </div>
   );
-};
+}
 
-export default FileUpload;
+export default App;
