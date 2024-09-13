@@ -1,17 +1,17 @@
 import React, { useState } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
-import Login from './Login';
+import { Route, Routes } from 'react-router-dom';
 import SideBar from './SideBar';
 import MainPage from './MainPage';
 import DocumentManagement from './DocumentManagement';
-import SidePanel from './SidePanel';
-import './App.css'; // Odkaz na CSS styly
-
+import DocumentPreviewPanel from './DocumentPreviewPanel';
+import './App.css';
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token')); // Kontrola přihlášení
+  const [isLoggedIn, setIsLoggedIn] = useState(true); // Simulace přihlášení pro testování
   const [sidePanelVisible, setSidePanelVisible] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [panelWidth, setPanelWidth] = useState(400); // Inicializace šířky panelu
+
 
   const handleLogin = (token) => {
     setIsLoggedIn(true);
@@ -28,31 +28,28 @@ function App() {
     setSidePanelVisible(!sidePanelVisible);
   };
 
+  const handleResize = (newWidth) => {
+    setPanelWidth(newWidth);
+  };
+
   return (
     <div className="app-container">
-      <Router>
-        {isLoggedIn ? (
-          <>
-            <SideBar />
-            <div className="main-content">
-              <Routes>
-                <Route path="/main-page" element={<MainPage />} />
-                <Route path="/document-management" element={<DocumentManagement toggleSidePanel={toggleSidePanel} />} />
-                <Route path="*" element={<Navigate to="/main-page" />} /> {/* Přesměrování na main-page */}
-              </Routes>
+      {isLoggedIn && <SideBar />}
+      <div className="main-content">
+        <Routes>
+          <Route path="/main-page" element={<MainPage />} />
+          <Route path="/document-management" element={<DocumentManagement toggleSidePanel={toggleSidePanel} />} />
+        </Routes>
 
-              {sidePanelVisible && (
-                <SidePanel file={selectedFile} onClose={() => setSidePanelVisible(false)} />
-              )}
-            </div>
-          </>
-        ) : (
-          <Routes>
-            <Route path="/login" element={<Login setToken={handleLogin} />} />
-            <Route path="*" element={<Navigate to="/login" />} /> {/* Přesměrování na login */}
-          </Routes>
+        {sidePanelVisible && (
+          <DocumentPreviewPanel
+            file={selectedFile}
+            onClose={() => setSidePanelVisible(false)}
+            panelWidth={panelWidth}
+            onResize={handleResize}
+          />
         )}
-      </Router>
+      </div>
     </div>
   );
 }
