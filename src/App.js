@@ -32,6 +32,8 @@ function App() {
     setPanelWidth(newWidth);
   };
 
+ 
+
   return (
     <div className="app-container">
       {isLoggedIn && <SideBar />}

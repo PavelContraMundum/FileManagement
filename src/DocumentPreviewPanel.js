@@ -1,13 +1,74 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "./DocumentPreviewPanel.css";
+import { useDropzone } from 'react-dropzone';
+import axios from 'axios';
 
 const DocumentPreviewPanel = ({ file, onClose, initialPanelWidth, onResize }) => {
   const [panelWidth, setPanelWidth] = useState(initialPanelWidth);
   const [iframeSize, setIframeSize] = useState({ width: initialPanelWidth - 40, height: 600 });
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const isResizingPanel = useRef(false);
   const isResizingIframe = useRef(false);
   const panelRef = useRef(null);
   const iframeRef = useRef(null);
+
+  useEffect(() => {
+    const checkExistingFile = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await axios.get(`http://localhost:8080/file/${file.ID}`);
+        if (response.data && response.data.FileData) {
+          setUploadedFile(response.data);
+          file.FileData = response.data.FileData;
+          file.FileName = response.data.FileName;
+        }
+      } catch (error) {
+        console.error('Error fetching existing file:', error);
+        setError('Nepodařilo se načíst dokument. Zkuste to prosím znovu.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkExistingFile();
+  }, [file.ID]);
+
+  const onDrop = useCallback((acceptedFiles) => {
+    const pdfFile = acceptedFiles[0];
+    if (pdfFile && pdfFile.type === 'application/pdf') {
+      const formData = new FormData();
+      formData.append('file', pdfFile);
+
+      axios.put(`http://localhost:8080/uploadFile/${file.ID}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+        .then(response => {
+          console.log('File uploaded successfully:', response.data);
+          return axios.get(`http://localhost:8080/file/${file.ID}`);
+        })
+        .then(fileResponse => {
+          console.log("data z axiosu: ", fileResponse.data);
+          file.FileData = fileResponse.data.FileData;
+          file.FileName = fileResponse.data.FileName;
+          setUploadedFile(fileResponse.data);
+        })
+        .catch(error => {
+          console.error('Error uploading or fetching file:', error);
+        });
+    } else {
+      alert('Please upload a PDF file');
+    }
+  }, [file]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: 'application/pdf'
+  });
 
   const handlePanelMouseDown = useCallback((e) => {
     isResizingPanel.current = true;
@@ -71,10 +132,17 @@ const DocumentPreviewPanel = ({ file, onClose, initialPanelWidth, onResize }) =>
       ></div>
       <button onClick={onClose}>Close Panel</button>
       <h3>PDF Preview</h3>
-      <div className="upload-area">
-        Prostor pro komponentu nahrávání dokumentu
-      </div>
-      {file ? (
+      {!uploadedFile && !file.FileData && (
+        <div {...getRootProps()} className="upload-area">
+          <input {...getInputProps()} />
+          {isDragActive ? (
+            <p>Drop the PDF file here ...</p>
+          ) : (
+            <p>Drag 'n' drop a PDF file here, or click to select one</p>
+          )}
+        </div>
+      )}
+      {!isLoading && !error && (uploadedFile || file.FileData) && (
         <div
           ref={iframeRef}
           className="iframe-container"
@@ -89,8 +157,6 @@ const DocumentPreviewPanel = ({ file, onClose, initialPanelWidth, onResize }) =>
             onMouseDown={handleIframeMouseDown}
           ></div>
         </div>
-      ) : (
-        <p>No document selected</p>
       )}
     </div>
   );
