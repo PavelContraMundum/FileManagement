@@ -8,6 +8,7 @@ function DocumentManagement({ toggleSidePanel }) {
     const [binders, setBinders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showNewRow, setShowNewRow] = useState(false);
+    const [hoveredRowId, setHoveredRowId] = useState(null);
     const [newRow, setNewRow] = useState({
         Id: 'new',
         DocumentName: '',
@@ -18,33 +19,34 @@ function DocumentManagement({ toggleSidePanel }) {
     });
 
     useEffect(() => {
-        const fetchDocuments = async () => {
-            try {
-                const response = await axios.get('http://localhost:8080/files', {
-                    headers: { Authorization: localStorage.getItem('token') },
-                });
-                setDocuments(response.data);
-            } catch (error) {
-                console.error("Error fetching documents:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        const fetchBinders = async () => {
-            try {
-                const response = await axios.get('http://localhost:8080/binders', {
-                    headers: { Authorization: localStorage.getItem('token') },
-                });
-                setBinders(response.data);
-            } catch (error) {
-                console.error("Error fetching binders:", error);
-            }
-        };
-
         fetchDocuments();
         fetchBinders();
     }, []);
+
+    const fetchDocuments = async () => {
+        try {
+            const response = await axios.get('http://localhost:8080/files', {
+                headers: { Authorization: localStorage.getItem('token') },
+            });
+            console.log('Fetched documents:', response.data);
+            setDocuments(response.data);
+        } catch (error) {
+            console.error("Error fetching documents:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchBinders = async () => {
+        try {
+            const response = await axios.get('http://localhost:8080/binders', {
+                headers: { Authorization: localStorage.getItem('token') },
+            });
+            setBinders(response.data);
+        } catch (error) {
+            console.error("Error fetching binders:", error);
+        }
+    };
 
     const handleAddRow = () => {
         setShowNewRow(true);
@@ -85,16 +87,79 @@ function DocumentManagement({ toggleSidePanel }) {
 
     const handleCellChange = async (id, field, value) => {
         try {
-            await axios.put(`http://localhost:8080/files/${id}`, { [field]: value }, {
-                headers: { Authorization: localStorage.getItem('token') },
+            console.log(`Attempting to update document with ID: ${id}`); // Debug log
+            console.log('Current documents state:', documents); // Debug log
+
+            const updatedDoc = documents.find(doc => doc.ID === id);
+            if (!updatedDoc) {
+                console.error(`Document not found with ID: ${id}`);
+                return;
+            }
+
+            const updatedDocData = { ...updatedDoc, [field]: value };
+
+            console.log(`Updating document:`, updatedDocData); // Debug log
+
+            await axios.put(`http://localhost:8080/files/${id}`, updatedDocData, {
+                headers: {
+                    Authorization: localStorage.getItem('token'),
+                    'Content-Type': 'application/json'
+                },
             });
+
             setDocuments(prev => prev.map(doc =>
-                doc.Id === id ? { ...doc, [field]: value } : doc
+                doc.ID === id ? updatedDocData : doc
             ));
         } catch (error) {
-            console.error("Error updating document:", error);
+            console.error("Error updating document:", error.response?.data || error.message);
         }
     };
+
+    const handleInputChange = (id, field, value) => {
+        setDocuments(prev => prev.map(doc =>
+            doc.ID === id ? { ...doc, [field]: value } : doc
+        ));
+    };
+
+    const handleCellUpdate = async (id, field, value) => {
+        try {
+            const updatedDoc = documents.find(doc => doc.ID === id);
+            if (!updatedDoc) {
+                console.error(`Document not found with ID: ${id}`);
+                return;
+            }
+
+            let updatedValue = value;
+            if (field === 'Page') {
+                updatedValue = value === '' ? null : parseInt(value, 10);
+                if (isNaN(updatedValue)) {
+                    console.error('Invalid page number');
+                    return;
+                }
+            }
+
+            const updatedDocData = { ...updatedDoc, [field]: updatedValue };
+
+            console.log(`Updating document:`, updatedDocData);
+
+            await axios.put(`http://localhost:8080/files/${id}`, updatedDocData, {
+                headers: {
+                    Authorization: localStorage.getItem('token'),
+                    'Content-Type': 'application/json'
+                },
+            });
+
+            console.log('Document updated successfully');
+        } catch (error) {
+            console.error("Error updating document:", error.response?.data || error.message);
+            // Revert the change in the frontend if the update fails
+            fetchDocuments();
+        }
+    };
+
+
+
+
 
     return (
         <div className="document-management">
@@ -160,29 +225,40 @@ function DocumentManagement({ toggleSidePanel }) {
                                 </tr>
                             )}
                             {documents.map((doc) => (
-                                <tr key={doc.Id}>
-                                    <td width={300}>
+                                <tr key={doc.ID}
+                                    onMouseEnter={() => setHoveredRowId(doc.ID)}
+                                    onMouseLeave={() => setHoveredRowId(null)}
+                                >
+                                    <td width={300} className="document-name-cell">
                                         <input
-                                            value={doc.DocumentName}
-                                            onChange={(e) => handleCellChange(doc.Id, 'DocumentName', e.target.value)}
+                                            value={doc.DocumentName || ''}
+                                            onChange={(e) => handleInputChange(doc.ID, 'DocumentName', e.target.value)}
+                                            onBlur={(e) => handleCellUpdate(doc.ID, 'DocumentName', e.target.value)}
                                         />
-                                        <FaEye
-                                            onClick={() => toggleSidePanel(doc)}
-                                            style={{ marginLeft: 10, cursor: 'pointer' }}
-                                        />
+                                        {doc.ID && doc.ID !== 'new' && hoveredRowId === doc.ID && (
+                                            <FaEye
+                                                className="eye-icon"
+                                                onClick={() => toggleSidePanel(doc)}
+                                            />
+                                        )}
                                     </td>
                                     <td width={300}>
                                         <input
-                                            value={doc.Note}
-                                            onChange={(e) => handleCellChange(doc.Id, 'Note', e.target.value)}
+                                            value={doc.Note || ''}
+                                            onChange={(e) => handleInputChange(doc.ID, 'Note', e.target.value)}
+                                            onBlur={(e) => handleCellUpdate(doc.ID, 'Note', e.target.value)}
                                         />
                                     </td>
                                     <td>{new Date(doc.CreatedAt).toLocaleDateString()}</td>
                                     <td width={80}>
                                         <select
-                                            value={doc.IDBinder}
-                                            onChange={(e) => handleCellChange(doc.Id, 'IDBinder', e.target.value)}
+                                            value={doc.IDBinder || ''}
+                                            onChange={(e) => {
+                                                handleInputChange(doc.ID, 'IDBinder', e.target.value);
+                                                handleCellUpdate(doc.ID, 'IDBinder', e.target.value);
+                                            }}
                                         >
+                                            <option value="">Select binder</option>
                                             {binders.map(binder => (
                                                 <option key={binder.id} value={binder.ID}>{binder.Name}</option>
                                             ))}
@@ -190,8 +266,9 @@ function DocumentManagement({ toggleSidePanel }) {
                                     </td>
                                     <td>
                                         <input
-                                            value={doc.Page}
-                                            onChange={(e) => handleCellChange(doc.Id, 'Page', e.target.value)}
+                                            value={doc.Page || ''}
+                                            onChange={(e) => handleInputChange(doc.ID, 'Page', e.target.value)}
+                                            onBlur={(e) => handleCellUpdate(doc.ID, 'Page', e.target.value)}
                                         />
                                     </td>
                                     <td>
