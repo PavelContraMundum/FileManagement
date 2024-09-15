@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { FaEye, FaPlus } from 'react-icons/fa';
 import './DocumentManagement.css';
+import ComboboxWithSearch from './ComboboxWithSearch';
+
 
 function DocumentManagement({ toggleSidePanel }) {
     const [documents, setDocuments] = useState([]);
@@ -17,6 +19,9 @@ function DocumentManagement({ toggleSidePanel }) {
         IDBinder: '',
         Page: ''
     });
+    // const [searchTerm, setSearchTerm] = useState('');
+
+
 
     useEffect(() => {
         fetchDocuments();
@@ -47,6 +52,10 @@ function DocumentManagement({ toggleSidePanel }) {
             console.error("Error fetching binders:", error);
         }
     };
+
+    // const filteredBinders = binders.filter(binder =>
+    //     binder.Name.toLowerCase().includes(searchTerm.toLowerCase())
+    // );
 
     const handleAddRow = () => {
         setShowNewRow(true);
@@ -85,35 +94,35 @@ function DocumentManagement({ toggleSidePanel }) {
     };
 
 
-    const handleCellChange = async (id, field, value) => {
-        try {
-            console.log(`Attempting to update document with ID: ${id}`); // Debug log
-            console.log('Current documents state:', documents); // Debug log
+    // const handleCellChange = async (id, field, value) => {
+    //     try {
+    //         console.log(`Attempting to update document with ID: ${id}`); // Debug log
+    //         console.log('Current documents state:', documents); // Debug log
 
-            const updatedDoc = documents.find(doc => doc.ID === id);
-            if (!updatedDoc) {
-                console.error(`Document not found with ID: ${id}`);
-                return;
-            }
+    //         const updatedDoc = documents.find(doc => doc.ID === id);
+    //         if (!updatedDoc) {
+    //             console.error(`Document not found with ID: ${id}`);
+    //             return;
+    //         }
 
-            const updatedDocData = { ...updatedDoc, [field]: value };
+    //         const updatedDocData = { ...updatedDoc, [field]: value };
 
-            console.log(`Updating document:`, updatedDocData); // Debug log
+    //         console.log(`Updating document:`, updatedDocData); // Debug log
 
-            await axios.put(`http://localhost:8080/files/${id}`, updatedDocData, {
-                headers: {
-                    Authorization: localStorage.getItem('token'),
-                    'Content-Type': 'application/json'
-                },
-            });
+    //         await axios.put(`http://localhost:8080/files/${id}`, updatedDocData, {
+    //             headers: {
+    //                 Authorization: localStorage.getItem('token'),
+    //                 'Content-Type': 'application/json'
+    //             },
+    //         });
 
-            setDocuments(prev => prev.map(doc =>
-                doc.ID === id ? updatedDocData : doc
-            ));
-        } catch (error) {
-            console.error("Error updating document:", error.response?.data || error.message);
-        }
-    };
+    //         setDocuments(prev => prev.map(doc =>
+    //             doc.ID === id ? updatedDocData : doc
+    //         ));
+    //     } catch (error) {
+    //         console.error("Error updating document:", error.response?.data || error.message);
+    //     }
+    // };
 
     const handleInputChange = (id, field, value) => {
         setDocuments(prev => prev.map(doc =>
@@ -138,11 +147,12 @@ function DocumentManagement({ toggleSidePanel }) {
                 }
             }
 
+
             const updatedDocData = { ...updatedDoc, [field]: updatedValue };
 
             console.log(`Updating document:`, updatedDocData);
 
-            await axios.put(`http://localhost:8080/files/${id}`, updatedDocData, {
+            await axios.put(`http://localhost:8080/updateFile/${id}`, updatedDocData, {
                 headers: {
                     Authorization: localStorage.getItem('token'),
                     'Content-Type': 'application/json'
@@ -158,6 +168,34 @@ function DocumentManagement({ toggleSidePanel }) {
     };
 
 
+    const handleBinderChange = async (docId, binderId) => {
+        try {
+            const updatedDoc = documents.find(doc => doc.ID === docId);
+            if (!updatedDoc) {
+                console.error(`Document not found with ID: ${docId}`);
+                return;
+            }
+
+            const updatedDocData = { ...updatedDoc, IDBinder: binderId };
+
+            await axios.put(`http://localhost:8080/updateFile/${docId}`, updatedDocData, {
+                headers: {
+                    Authorization: localStorage.getItem('token'),
+                    'Content-Type': 'application/json'
+                },
+            });
+
+            setDocuments(prev => prev.map(doc =>
+                doc.ID === docId ? updatedDocData : doc
+            ));
+
+            console.log('Binder updated successfully');
+        } catch (error) {
+            console.error("Error updating binder:", error.response?.data || error.message);
+            // Optionally, you can revert the change in the frontend if the update fails
+            // fetchDocuments();
+        }
+    };
 
 
 
@@ -202,16 +240,30 @@ function DocumentManagement({ toggleSidePanel }) {
                                     </td>
                                     <td>{new Date(newRow.CreatedAt).toLocaleDateString()}</td>
                                     <td width={80}>
+                                        {/* Použití comboboxu s vyhledáváním pro nový řádek */}
+                                        <ComboboxWithSearch
+                                            binders={binders}
+                                            selectedBinder={newRow.IDBinder}
+                                            onBinderChange={(binderId) => handleNewRowChange('IDBinder', binderId)}
+                                        />
+                                    </td>
+                                    {/* <td width={80}>
+                                        <input
+                                            type="text"
+                                            placeholder="Search binders..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
                                         <select
                                             value={newRow.IDBinder}
                                             onChange={(e) => handleNewRowChange('IDBinder', e.target.value)}
                                         >
                                             <option value="">Select binder</option>
-                                            {binders.map(binder => (
-                                                <option key={binder.id} value={binder.ID}>{binder.Name}</option>
+                                            {filteredBinders.map(binder => (
+                                                <option key={binder.ID} value={binder.ID}>{binder.Name}</option>
                                             ))}
                                         </select>
-                                    </td>
+                                    </td> */}
                                     <td>
                                         <input
                                             value={newRow.Page}
@@ -250,7 +302,14 @@ function DocumentManagement({ toggleSidePanel }) {
                                         />
                                     </td>
                                     <td>{new Date(doc.CreatedAt).toLocaleDateString()}</td>
-                                    <td width={80}>
+                                    <td width={120}>
+                                        <ComboboxWithSearch
+                                            binders={binders}
+                                            selectedBinder={doc.IDBinder}
+                                            onBinderChange={(binderId) => handleBinderChange(doc.ID, binderId)}
+                                        />
+                                    </td>
+                                    {/* <td width={80}>
                                         <select
                                             value={doc.IDBinder || ''}
                                             onChange={(e) => {
@@ -260,11 +319,11 @@ function DocumentManagement({ toggleSidePanel }) {
                                         >
                                             <option value="">Select binder</option>
                                             {binders.map(binder => (
-                                                <option key={binder.id} value={binder.ID}>{binder.Name}</option>
+                                                <option key={binder.ID} value={binder.ID}>{binder.Name}</option>
                                             ))}
                                         </select>
-                                    </td>
-                                    <td>
+                                    </td> */}
+                                    <td width={80}>
                                         <input
                                             value={doc.Page || ''}
                                             onChange={(e) => handleInputChange(doc.ID, 'Page', e.target.value)}

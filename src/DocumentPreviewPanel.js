@@ -71,16 +71,21 @@ const DocumentPreviewPanel = ({ file, onClose, initialPanelWidth, onResize }) =>
   });
 
   const handlePanelMouseDown = useCallback((e) => {
+    isResizingIframe.current = false;
     isResizingPanel.current = true;
+
     e.preventDefault();
   }, []);
 
   const handleIframeMouseDown = useCallback((e) => {
+    isResizingPanel.current = false;
+
     isResizingIframe.current = true;
     e.preventDefault();
   }, []);
 
   const handleMouseUp = useCallback(() => {
+    console.log('Mouse up: Ending resize');
     isResizingPanel.current = false;
     isResizingIframe.current = false;
   }, []);
@@ -107,7 +112,10 @@ const DocumentPreviewPanel = ({ file, onClose, initialPanelWidth, onResize }) =>
 
     const handleGlobalMouseUp = () => {
       if (isResizingPanel.current || isResizingIframe.current) {
+        console.log('Global mouse up: Reset resizing flags');
         handleMouseUp();
+      } else {
+        console.log("No resizing is active")
       }
     };
 
