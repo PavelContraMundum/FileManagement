@@ -296,3 +296,14 @@ tr:hover .eye-icon {
     border: 1px solid #e0e0e0;
     border-radius: 3px;
   }
+
+  .action-icon.delete-icon {
+    color: #979797;
+    margin-right: 10px;
+    cursor: pointer;
+  }
+
+  .action-icon.download-icon {
+    color: #979797;
+    cursor: pointer;
+  }

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
-import { FaEye, FaPlus, FaFilter, FaSort, FaSortUp, FaSortDown, FaSearch } from 'react-icons/fa';
+import { FaEye, FaPlus, FaFilter, FaSort, FaSortUp, FaSortDown, FaSearch, FaTrash, FaDownload } from 'react-icons/fa';
 import './DocumentManagement.css';
 import ComboboxWithSearch from './ComboboxWithSearch';
 
@@ -368,6 +368,51 @@ function DocumentManagement({ toggleSidePanel }) {
         setActiveFilters({});
     };
 
+    const handleDeleteDocument = async (id) => {
+        if (window.confirm('Are you sure you want to delete this document?')) {
+            try {
+                const response = await axios.delete(`http://localhost:8080/files/${id}`, {
+                    headers: { Authorization: localStorage.getItem('token') },
+                });
+                if (response.status === 200) {
+                    setDocuments(prevDocs => prevDocs.filter(doc => doc.ID !== id));
+                    alert('Document deleted successfully');
+                }
+            } catch (error) {
+                console.error("Error deleting document:", error);
+                if (error.response && error.response.status === 404) {
+                    alert('Document not found. It may have been already deleted.');
+                } else {
+                    alert('Error deleting document. Please try again.');
+                }
+            }
+        }
+    };
+
+    const handleDownloadPDF = async (id, fileName) => {
+        try {
+            const response = await axios.get(`http://localhost:8080/files/${id}/download`, {
+                headers: { Authorization: localStorage.getItem('token') },
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `${fileName || 'document'}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error("Error downloading PDF:", error);
+            if (error.response && error.response.status === 404) {
+                alert('PDF not found. The file may have been deleted or not uploaded yet.');
+            } else {
+                alert('Error downloading PDF. Please try again.');
+            }
+        }
+    };
+
+
     return (
         <div className="document-management">
             <div className="toolbar">
@@ -529,7 +574,16 @@ function DocumentManagement({ toggleSidePanel }) {
                                         />
                                     </td>
                                     <td>
-                                        <button onClick={() => toggleSidePanel(doc)}>View</button>
+                                        <FaTrash
+                                            className="action-icon delete-icon"
+                                            onClick={() => handleDeleteDocument(doc.ID)}
+                                            title="Delete document"
+                                        />
+                                        <FaDownload
+                                            className="action-icon download-icon"
+                                            onClick={() => handleDownloadPDF(doc.ID, doc.DocumentName)}
+                                            title="Download PDF"
+                                        />
                                     </td>
                                 </tr>
                             ))}
