@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { FaEye, FaPlus } from 'react-icons/fa';
 import './DocumentManagement.css';
@@ -19,9 +19,8 @@ function DocumentManagement({ toggleSidePanel }) {
         IDBinder: '',
         Page: ''
     });
-    // const [searchTerm, setSearchTerm] = useState('');
-
-
+    const [searchTerm, setSearchTerm] = useState('');
+    const [editingRowId, setEditingRowId] = useState(null);  // Stav pro úpravu řádku
 
     useEffect(() => {
         fetchDocuments();
@@ -53,9 +52,6 @@ function DocumentManagement({ toggleSidePanel }) {
         }
     };
 
-    // const filteredBinders = binders.filter(binder =>
-    //     binder.Name.toLowerCase().includes(searchTerm.toLowerCase())
-    // );
 
     const handleAddRow = () => {
         setShowNewRow(true);
@@ -93,36 +89,6 @@ function DocumentManagement({ toggleSidePanel }) {
         }
     };
 
-
-    // const handleCellChange = async (id, field, value) => {
-    //     try {
-    //         console.log(`Attempting to update document with ID: ${id}`); // Debug log
-    //         console.log('Current documents state:', documents); // Debug log
-
-    //         const updatedDoc = documents.find(doc => doc.ID === id);
-    //         if (!updatedDoc) {
-    //             console.error(`Document not found with ID: ${id}`);
-    //             return;
-    //         }
-
-    //         const updatedDocData = { ...updatedDoc, [field]: value };
-
-    //         console.log(`Updating document:`, updatedDocData); // Debug log
-
-    //         await axios.put(`http://localhost:8080/files/${id}`, updatedDocData, {
-    //             headers: {
-    //                 Authorization: localStorage.getItem('token'),
-    //                 'Content-Type': 'application/json'
-    //             },
-    //         });
-
-    //         setDocuments(prev => prev.map(doc =>
-    //             doc.ID === id ? updatedDocData : doc
-    //         ));
-    //     } catch (error) {
-    //         console.error("Error updating document:", error.response?.data || error.message);
-    //     }
-    // };
 
     const handleInputChange = (id, field, value) => {
         setDocuments(prev => prev.map(doc =>
@@ -165,6 +131,10 @@ function DocumentManagement({ toggleSidePanel }) {
             // Revert the change in the frontend if the update fails
             fetchDocuments();
         }
+
+
+        console.log(`Update ${field} in document ${id}: ${value}`);
+        setEditingRowId(null);  // Konec úprav, zrušíme režim úprav
     };
 
 
@@ -197,13 +167,65 @@ function DocumentManagement({ toggleSidePanel }) {
         }
     };
 
+    const getBinderName = (binderId) => {
+        const binder = binders.find(b => b.ID === binderId);
+        return binder ? binder.Name : '';
+    };
+
+    // const filteredDocuments = documents.filter(doc =>
+    //     Object.values(doc).some(value =>
+    //         value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
+    //     )
+    // );
+
+    const filteredDocuments = useMemo(() => {
+        return documents.filter(doc => {
+            const binderName = getBinderName(doc.IDBinder);
+            return (
+                doc.DocumentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                doc.Note.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                new Date(doc.CreatedAt).toLocaleDateString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+                binderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (doc.Page && doc.Page.toString().toLowerCase().includes(searchTerm.toLowerCase()))
+            );
+        });
+    }, [documents, binders, searchTerm]);
+
+    const highlightText = (text, highlight) => {
+        if (!highlight.trim() || !text) {
+            return text;
+        }
+        const parts = text.toString().split(new RegExp(`(${highlight})`, 'gi'));
+        return (
+            <span>
+                {parts.map((part, index) =>
+                    part.toLowerCase() === highlight.toLowerCase()
+                        ? <mark key={index} style={{ backgroundColor: 'yellow', padding: 0 }}>{part}</mark>
+                        : part
+                )}
+            </span>
+        );
+    };
+
 
 
     return (
         <div className="document-management">
-            <button onClick={handleAddRow} className="add-row-button">
-                <FaPlus /> Add Row
-            </button>
+            <div style={{ display: "flex", flexDirection: "row" }}>
+                <button onClick={handleAddRow} className="add-row-button">
+                    <FaPlus /> Add Row
+                </button>
+                <div className="search-container" style={{ marginLeft: "800px" }}>
+                    <input
+                        type="text"
+                        placeholder="Vyhledat ve všech sloupcích..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="search-input"
+                    />
+                </div>
+
+            </div>
             <table className="notion-table">
                 <thead>
                     <tr>
@@ -276,7 +298,7 @@ function DocumentManagement({ toggleSidePanel }) {
                                     </td>
                                 </tr>
                             )}
-                            {documents.map((doc) => (
+                            {filteredDocuments.map((doc) => (
                                 <tr key={doc.ID}
                                     onMouseEnter={() => setHoveredRowId(doc.ID)}
                                     onMouseLeave={() => setHoveredRowId(null)}
@@ -295,11 +317,13 @@ function DocumentManagement({ toggleSidePanel }) {
                                         )}
                                     </td>
                                     <td width={300}>
+
                                         <input
                                             value={doc.Note || ''}
                                             onChange={(e) => handleInputChange(doc.ID, 'Note', e.target.value)}
                                             onBlur={(e) => handleCellUpdate(doc.ID, 'Note', e.target.value)}
                                         />
+
                                     </td>
                                     <td>{new Date(doc.CreatedAt).toLocaleDateString()}</td>
                                     <td width={120}>
@@ -307,22 +331,10 @@ function DocumentManagement({ toggleSidePanel }) {
                                             binders={binders}
                                             selectedBinder={doc.IDBinder}
                                             onBinderChange={(binderId) => handleBinderChange(doc.ID, binderId)}
+                                            highlightText={(text) => highlightText(text, searchTerm)}
                                         />
+
                                     </td>
-                                    {/* <td width={80}>
-                                        <select
-                                            value={doc.IDBinder || ''}
-                                            onChange={(e) => {
-                                                handleInputChange(doc.ID, 'IDBinder', e.target.value);
-                                                handleCellUpdate(doc.ID, 'IDBinder', e.target.value);
-                                            }}
-                                        >
-                                            <option value="">Select binder</option>
-                                            {binders.map(binder => (
-                                                <option key={binder.ID} value={binder.ID}>{binder.Name}</option>
-                                            ))}
-                                        </select>
-                                    </td> */}
                                     <td width={80}>
                                         <input
                                             value={doc.Page || ''}
