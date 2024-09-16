@@ -1,8 +1,68 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
-import { FaEye, FaPlus } from 'react-icons/fa';
+import { FaEye, FaPlus, FaFilter, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
 import './DocumentManagement.css';
 import ComboboxWithSearch from './ComboboxWithSearch';
+
+
+
+const ColumnFilter = ({ column, onFilterChange, onSortChange, currentSort }) => {
+    const [showFilter, setShowFilter] = useState(false);
+    const [filterType, setFilterType] = useState('contains');
+    const [filterValue, setFilterValue] = useState('');
+
+    const filterTypes = [
+        { value: 'is', label: 'Is' },
+        { value: 'isNot', label: 'Is not' },
+        { value: 'contains', label: 'Contains' },
+        { value: 'doesNotContain', label: 'Does not contain' },
+        { value: 'startsWith', label: 'Starts with' },
+        { value: 'endsWith', label: 'Ends with' },
+        { value: 'isEmpty', label: 'Is empty' },
+        { value: 'isNotEmpty', label: 'Is not empty' },
+    ];
+
+    const handleFilterChange = () => {
+        onFilterChange(column, { type: filterType, value: filterValue });
+        setShowFilter(false);
+    };
+
+    const handleSortChange = () => {
+        const nextSort = currentSort === 'asc' ? 'desc' : currentSort === 'desc' ? null : 'asc';
+        onSortChange(column, nextSort);
+    };
+
+    return (
+        <div className="column-filter">
+            <div className="filter-icons">
+                <FaFilter onClick={() => setShowFilter(!showFilter)} className="filter-icon" />
+                {currentSort === 'asc' && <FaSortUp onClick={handleSortChange} className="sort-icon" />}
+                {currentSort === 'desc' && <FaSortDown onClick={handleSortChange} className="sort-icon" />}
+                {!currentSort && <FaSort onClick={handleSortChange} className="sort-icon" />}
+            </div>
+            {showFilter && (
+                <div className="filter-dropdown">
+                    <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="filter-select">
+                        {filterTypes.map((type) => (
+                            <option key={type.value} value={type.value}>{type.label}</option>
+                        ))}
+                    </select>
+                    {!['isEmpty', 'isNotEmpty'].includes(filterType) && (
+                        <input
+                            type="text"
+                            value={filterValue}
+                            onChange={(e) => setFilterValue(e.target.value)}
+                            placeholder="Filter value"
+                            className="filter-input"
+                        />
+                    )}
+                    <button onClick={handleFilterChange} className="filter-button">Apply</button>
+                </div>
+            )}
+        </div>
+    );
+};
+
 
 
 function DocumentManagement({ toggleSidePanel }) {
@@ -21,6 +81,9 @@ function DocumentManagement({ toggleSidePanel }) {
     });
     const [searchTerm, setSearchTerm] = useState('');
     const [editingRowId, setEditingRowId] = useState(null);  // Stav pro úpravu řádku
+    const [filters, setFilters] = useState({});
+    const [activeFilters, setActiveFilters] = useState({});
+    const [sorting, setSorting] = useState({ column: null, direction: null });
 
     useEffect(() => {
         fetchDocuments();
@@ -172,24 +235,87 @@ function DocumentManagement({ toggleSidePanel }) {
         return binder ? binder.Name : '';
     };
 
-    // const filteredDocuments = documents.filter(doc =>
-    //     Object.values(doc).some(value =>
-    //         value && value.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    //     )
-    // );
 
-    const filteredDocuments = useMemo(() => {
-        return documents.filter(doc => {
-            const binderName = getBinderName(doc.IDBinder);
-            return (
-                doc.DocumentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                doc.Note.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                new Date(doc.CreatedAt).toLocaleDateString().toLowerCase().includes(searchTerm.toLowerCase()) ||
-                binderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (doc.Page && doc.Page.toString().toLowerCase().includes(searchTerm.toLowerCase()))
-            );
+
+    const applyFilter = (doc, column, filter) => {
+        let value;
+        if (column === 'IDBinder') {
+            value = getBinderName(doc[column]);
+        } else {
+            value = doc[column];
+        }
+
+        if (value === null || value === undefined) {
+            value = '';
+        } else {
+            value = value.toString();
+        }
+        switch (filter.type) {
+            case 'is':
+                return value === filter.value;
+            case 'isNot':
+                return value !== filter.value;
+            case 'contains':
+                return value.toLowerCase().includes(filter.value.toLowerCase());
+            case 'doesNotContain':
+                return !value.toLowerCase().includes(filter.value.toLowerCase());
+            case 'startsWith':
+                return value.toLowerCase().startsWith(filter.value.toLowerCase());
+            case 'endsWith':
+                return value.toLowerCase().endsWith(filter.value.toLowerCase());
+            case 'isEmpty':
+                return !value || value.trim() === '';
+            case 'isNotEmpty':
+                return value && value.trim() !== '';
+            default:
+                return true;
+        }
+    };
+
+    const filteredAndSortedDocuments = useMemo(() => {
+        let result = documents.filter(doc => {
+            // Apply column filters
+            for (const [column, filter] of Object.entries(activeFilters)) {
+                if (!applyFilter(doc, column, filter)) {
+                    return false;
+                }
+            }
+
+            // Apply global search
+            if (searchTerm) {
+                const binderName = getBinderName(doc.IDBinder);
+                return (
+                    doc.DocumentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    doc.Note.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    new Date(doc.CreatedAt).toLocaleDateString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    binderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    (doc.Page && doc.Page.toString().toLowerCase().includes(searchTerm.toLowerCase()))
+                );
+            }
+
+            return true;
         });
-    }, [documents, binders, searchTerm]);
+
+        if (sorting.column) {
+            result.sort((a, b) => {
+                let aValue = a[sorting.column];
+                let bValue = b[sorting.column];
+
+                // Special handling for IDBinder column
+                if (sorting.column === 'IDBinder') {
+                    aValue = getBinderName(aValue);
+                    bValue = getBinderName(bValue);
+                }
+
+                if (aValue < bValue) return sorting.direction === 'asc' ? -1 : 1;
+                if (aValue > bValue) return sorting.direction === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        return result;
+    }, [documents, binders, searchTerm, activeFilters, sorting]);
+
 
     const highlightText = (text, highlight) => {
         if (!highlight.trim() || !text) {
@@ -208,32 +334,91 @@ function DocumentManagement({ toggleSidePanel }) {
     };
 
 
+    const handleFilterChange = (column, filterConfig) => {
+        setFilters(prev => ({ ...prev, [column]: filterConfig }));
+    };
+
+    const handleSortChange = (column, direction) => {
+        setSorting({ column, direction });
+    };
+
+    const applyFilters = () => {
+        setActiveFilters(filters);
+    };
+
+    const resetFilters = () => {
+        setFilters({});
+        setActiveFilters({});
+    };
 
     return (
         <div className="document-management">
-            <div style={{ display: "flex", flexDirection: "row" }}>
+            <div className="toolbar">
                 <button onClick={handleAddRow} className="add-row-button">
                     <FaPlus /> Add Row
                 </button>
-                <div className="search-container" style={{ marginLeft: "800px" }}>
+                <div className="search-container">
                     <input
                         type="text"
-                        placeholder="Vyhledat ve všech sloupcích..."
+                        placeholder="Search in all columns..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="search-input"
                     />
                 </div>
-
+                <div className="filter-buttons">
+                    <button onClick={applyFilters} className="apply-filters-button">Apply Filters</button>
+                    <button onClick={resetFilters} className="reset-filters-button">Reset Filters</button>
+                </div>
             </div>
             <table className="notion-table">
                 <thead>
                     <tr>
-                        <th>Název</th>
-                        <th>Poznámka</th>
-                        <th>Datum vytvoření</th>
-                        <th>Šanon</th>
-                        <th>Stránka</th>
+                        <th>
+                            Název
+                            <ColumnFilter
+                                column="DocumentName"
+                                onFilterChange={handleFilterChange}
+                                onSortChange={handleSortChange}
+                                currentSort={sorting.column === 'DocumentName' ? sorting.direction : null}
+                            />
+                        </th>
+                        <th>
+                            Poznámka
+                            <ColumnFilter
+                                column="Note"
+                                onFilterChange={handleFilterChange}
+                                onSortChange={handleSortChange}
+                                currentSort={sorting.column === 'Note' ? sorting.direction : null}
+                            />
+                        </th>
+                        <th>
+                            Datum vytvoření
+                            <ColumnFilter
+                                column="CreatedAt"
+                                onFilterChange={handleFilterChange}
+                                onSortChange={handleSortChange}
+                                currentSort={sorting.column === 'CreatedAt' ? sorting.direction : null}
+                            />
+                        </th>
+                        <th>
+                            Šanon
+                            <ColumnFilter
+                                column="IDBinder"
+                                onFilterChange={handleFilterChange}
+                                onSortChange={handleSortChange}
+                                currentSort={sorting.column === 'IDBinder' ? sorting.direction : null}
+                            />
+                        </th>
+                        <th>
+                            Strana
+                            <ColumnFilter
+                                column="Page"
+                                onFilterChange={handleFilterChange}
+                                onSortChange={handleSortChange}
+                                currentSort={sorting.column === 'Page' ? sorting.direction : null}
+                            />
+                        </th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -269,23 +454,6 @@ function DocumentManagement({ toggleSidePanel }) {
                                             onBinderChange={(binderId) => handleNewRowChange('IDBinder', binderId)}
                                         />
                                     </td>
-                                    {/* <td width={80}>
-                                        <input
-                                            type="text"
-                                            placeholder="Search binders..."
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                        />
-                                        <select
-                                            value={newRow.IDBinder}
-                                            onChange={(e) => handleNewRowChange('IDBinder', e.target.value)}
-                                        >
-                                            <option value="">Select binder</option>
-                                            {filteredBinders.map(binder => (
-                                                <option key={binder.ID} value={binder.ID}>{binder.Name}</option>
-                                            ))}
-                                        </select>
-                                    </td> */}
                                     <td>
                                         <input
                                             value={newRow.Page}
@@ -298,7 +466,7 @@ function DocumentManagement({ toggleSidePanel }) {
                                     </td>
                                 </tr>
                             )}
-                            {filteredDocuments.map((doc) => (
+                            {filteredAndSortedDocuments.map((doc) => (
                                 <tr key={doc.ID}
                                     onMouseEnter={() => setHoveredRowId(doc.ID)}
                                     onMouseLeave={() => setHoveredRowId(null)}
@@ -335,7 +503,7 @@ function DocumentManagement({ toggleSidePanel }) {
                                         />
 
                                     </td>
-                                    <td width={80}>
+                                    <td width={100}>
                                         <input
                                             value={doc.Page || ''}
                                             onChange={(e) => handleInputChange(doc.ID, 'Page', e.target.value)}
