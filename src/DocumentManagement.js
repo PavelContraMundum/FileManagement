@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
-import { FaEye, FaPlus, FaFilter, FaSort, FaSortUp, FaSortDown } from 'react-icons/fa';
+import { FaEye, FaPlus, FaFilter, FaSort, FaSortUp, FaSortDown, FaSearch } from 'react-icons/fa';
 import './DocumentManagement.css';
 import ComboboxWithSearch from './ComboboxWithSearch';
 
@@ -84,6 +84,8 @@ function DocumentManagement({ toggleSidePanel }) {
     const [filters, setFilters] = useState({});
     const [activeFilters, setActiveFilters] = useState({});
     const [sorting, setSorting] = useState({ column: null, direction: null });
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(30);
 
     useEffect(() => {
         fetchDocuments();
@@ -235,8 +237,6 @@ function DocumentManagement({ toggleSidePanel }) {
         return binder ? binder.Name : '';
     };
 
-
-
     const applyFilter = (doc, column, filter) => {
         let value;
         if (column === 'IDBinder') {
@@ -295,7 +295,7 @@ function DocumentManagement({ toggleSidePanel }) {
 
             return true;
         });
-
+        //Apply sorting
         if (sorting.column) {
             result.sort((a, b) => {
                 let aValue = a[sorting.column];
@@ -315,6 +315,23 @@ function DocumentManagement({ toggleSidePanel }) {
 
         return result;
     }, [documents, binders, searchTerm, activeFilters, sorting]);
+
+
+    const paginatedDocuments = useMemo(() => {
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        return filteredAndSortedDocuments.slice(startIndex, startIndex + rowsPerPage);
+    }, [filteredAndSortedDocuments, currentPage, rowsPerPage]);
+
+    const totalPages = Math.ceil(filteredAndSortedDocuments.length / rowsPerPage);
+
+    const handlePageChange = (newPage) => {
+        setCurrentPage(newPage);
+    };
+
+    const handleRowsPerPageChange = (event) => {
+        setRowsPerPage(Number(event.target.value));
+        setCurrentPage(1);  // Reset to first page when changing rows per page
+    };
 
 
     const highlightText = (text, highlight) => {
@@ -358,6 +375,7 @@ function DocumentManagement({ toggleSidePanel }) {
                     <FaPlus /> Add Row
                 </button>
                 <div className="search-container">
+                    <FaSearch className="search-icon" />
                     <input
                         type="text"
                         placeholder="Search in all columns..."
@@ -466,7 +484,7 @@ function DocumentManagement({ toggleSidePanel }) {
                                     </td>
                                 </tr>
                             )}
-                            {filteredAndSortedDocuments.map((doc) => (
+                            {paginatedDocuments.map((doc) => (
                                 <tr key={doc.ID}
                                     onMouseEnter={() => setHoveredRowId(doc.ID)}
                                     onMouseLeave={() => setHoveredRowId(null)}
@@ -519,6 +537,26 @@ function DocumentManagement({ toggleSidePanel }) {
                     )}
                 </tbody>
             </table>
+            <div className="pagination">
+                <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                >
+                    Previous
+                </button>
+                <span>Page {currentPage} of {totalPages}</span>
+                <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                >
+                    Next
+                </button>
+                <select value={rowsPerPage} onChange={handleRowsPerPageChange}>
+                    {[10, 20, 30, 40, 50, 60].map(value => (
+                        <option key={value} value={value}>{value} rows</option>
+                    ))}
+                </select>
+            </div>
         </div>
     );
 }
