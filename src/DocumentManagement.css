@@ -148,6 +148,7 @@ tr:hover .eye-icon {
     color: #37352f;
     cursor: pointer;
     transition: background-color 0.3s;
+    margin-left: 10px;
   }
   
   .add-row-button:hover,
@@ -307,3 +308,4 @@ tr:hover .eye-icon {
     color: #979797;
     cursor: pointer;
   }
+
