@@ -86,10 +86,12 @@ function DocumentManagement({ toggleSidePanel }) {
     const [sorting, setSorting] = useState({ column: null, direction: null });
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(30);
+    const [druhyDokumentu, setDruhyDokumentu] = useState([]);
 
     useEffect(() => {
         fetchDocuments();
         fetchBinders();
+        fetchDruhyDokumentu();
     }, []);
 
     const fetchDocuments = async () => {
@@ -116,6 +118,19 @@ function DocumentManagement({ toggleSidePanel }) {
             console.error("Error fetching binders:", error);
         }
     };
+
+    const fetchDruhyDokumentu = async () => {
+        try {
+            const response = await axios.get('http://localhost:8080/druhyDokumentu', {
+                headers: { Authorization: localStorage.getItem('token') },
+            });
+            setDruhyDokumentu(response.data)
+            console.log("druhy dokumentů: ", response.data)
+
+        } catch (error) {
+            console.error("Error fetching druhy dokumentů:", error)
+        }
+    }
 
 
     const handleAddRow = () => {
@@ -417,13 +432,13 @@ function DocumentManagement({ toggleSidePanel }) {
         <div className="document-management">
             <div className="toolbar">
                 <button onClick={handleAddRow} className="add-row-button">
-                    <FaPlus /> Add Row
+                    <FaPlus /> Nový řádek
                 </button>
                 <div className="search-container">
                     <FaSearch className="search-icon" />
                     <input
                         type="text"
-                        placeholder="Search in all columns..."
+                        placeholder="Vyhledat..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="search-input"
@@ -591,27 +606,30 @@ function DocumentManagement({ toggleSidePanel }) {
                     )}
                 </tbody>
             </table>
+
             <div className="pagination">
+                <div style={{ marginLeft: '5px', marginRight: "auto" }}>Celkem {documents.length} dokumentů</div>
                 <button
                     onClick={() => handlePageChange(currentPage - 1)}
                     disabled={currentPage === 1}
                 >
-                    Previous
+                    Předchozí
                 </button>
-                <span>Page {currentPage} of {totalPages}</span>
+                <span>Strana {currentPage} z {totalPages}</span>
                 <button
                     onClick={() => handlePageChange(currentPage + 1)}
                     disabled={currentPage === totalPages}
                 >
-                    Next
+                    Další
                 </button>
                 <select value={rowsPerPage} onChange={handleRowsPerPageChange}>
-                    {[10, 20, 30, 40, 50, 60].map(value => (
+                    {[5, 10, 20, 30, 40, 50, 60].map(value => (
                         <option key={value} value={value}>{value} rows</option>
                     ))}
                 </select>
             </div>
         </div>
+
     );
 }
 

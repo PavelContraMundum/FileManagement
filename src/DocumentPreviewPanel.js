@@ -139,7 +139,9 @@ const DocumentPreviewPanel = ({ file, onClose, initialPanelWidth, onResize }) =>
         onMouseDown={handlePanelMouseDown}
       ></div>
       <button onClick={onClose}>Close Panel</button>
-      <h3>PDF Preview</h3>
+      <h4>Název: {file.DocumentName}</h4>
+      <h4>Poznámka: {file.Note}</h4>
+      <h3>Náhled PDF</h3>
       {!uploadedFile && !file.FileData && (
         <div {...getRootProps()} className="upload-area">
           <input {...getInputProps()} />
