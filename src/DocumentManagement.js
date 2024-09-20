@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { FaEye, FaPlus, FaFilter, FaSort, FaSortUp, FaSortDown, FaSearch, FaTrash, FaDownload } from 'react-icons/fa';
+import DatePicker from "react-datepicker";
 import './DocumentManagement.css';
+import "react-datepicker/dist/react-datepicker.css";
 import ComboboxWithSearch from './ComboboxWithSearch';
+import ComboboxWithSearchDruhyDokumentu from './ComboboxWithSearchDruhyDokumentu';
 
 
 
@@ -11,16 +14,22 @@ const ColumnFilter = ({ column, onFilterChange, onSortChange, currentSort }) => 
     const [filterType, setFilterType] = useState('contains');
     const [filterValue, setFilterValue] = useState('');
 
-    const filterTypes = [
-        { value: 'is', label: 'Is' },
-        { value: 'isNot', label: 'Is not' },
-        { value: 'contains', label: 'Contains' },
-        { value: 'doesNotContain', label: 'Does not contain' },
-        { value: 'startsWith', label: 'Starts with' },
-        { value: 'endsWith', label: 'Ends with' },
-        { value: 'isEmpty', label: 'Is empty' },
-        { value: 'isNotEmpty', label: 'Is not empty' },
-    ];
+    const filterTypes = column === 'DatumDokumentu'
+        ? [
+            { value: 'before', label: 'Before' },
+            { value: 'after', label: 'After' },
+            { value: 'on', label: 'On' },
+        ]
+        : [
+            { value: 'is', label: 'Is' },
+            { value: 'isNot', label: 'Is not' },
+            { value: 'contains', label: 'Contains' },
+            { value: 'doesNotContain', label: 'Does not contain' },
+            { value: 'startsWith', label: 'Starts with' },
+            { value: 'endsWith', label: 'Ends with' },
+            { value: 'isEmpty', label: 'Is empty' },
+            { value: 'isNotEmpty', label: 'Is not empty' },
+        ];
 
     const handleFilterChange = () => {
         onFilterChange(column, { type: filterType, value: filterValue });
@@ -34,12 +43,7 @@ const ColumnFilter = ({ column, onFilterChange, onSortChange, currentSort }) => 
 
     return (
         <div className="column-filter">
-            <div className="filter-icons">
-                <FaFilter onClick={() => setShowFilter(!showFilter)} className="filter-icon" />
-                {currentSort === 'asc' && <FaSortUp onClick={handleSortChange} className="sort-icon" />}
-                {currentSort === 'desc' && <FaSortDown onClick={handleSortChange} className="sort-icon" />}
-                {!currentSort && <FaSort onClick={handleSortChange} className="sort-icon" />}
-            </div>
+            {/* ... (existing JSX) */}
             {showFilter && (
                 <div className="filter-dropdown">
                     <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="filter-select">
@@ -47,7 +51,14 @@ const ColumnFilter = ({ column, onFilterChange, onSortChange, currentSort }) => 
                             <option key={type.value} value={type.value}>{type.label}</option>
                         ))}
                     </select>
-                    {!['isEmpty', 'isNotEmpty'].includes(filterType) && (
+                    {column === 'DatumDokumentu' ? (
+                        <DatePicker
+                            selected={filterValue ? new Date(filterValue) : null}
+                            onChange={(date) => setFilterValue(date)}
+                            dateFormat="dd/MM/yyyy"
+                            placeholderText="Vyberte datum"
+                        />
+                    ) : (
                         <input
                             type="text"
                             value={filterValue}
@@ -77,7 +88,9 @@ function DocumentManagement({ toggleSidePanel }) {
         Note: '',
         CreatedAt: new Date().toISOString(),
         IDBinder: '',
-        Page: ''
+        Page: '',
+        IDDruhDokumentu: '',
+        DatumDokumentu: null
     });
     const [searchTerm, setSearchTerm] = useState('');
     const [editingRowId, setEditingRowId] = useState(null);  // Stav pro úpravu řádku
@@ -100,7 +113,10 @@ function DocumentManagement({ toggleSidePanel }) {
                 headers: { Authorization: localStorage.getItem('token') },
             });
             console.log('Fetched documents:', response.data);
-            setDocuments(response.data);
+            setDocuments(response.data.map(doc => ({
+                ...doc,
+                DatumDokumentu: formatDate(doc.DatumDokumentu)
+            })));
         } catch (error) {
             console.error("Error fetching documents:", error);
         } finally {
@@ -148,7 +164,9 @@ function DocumentManagement({ toggleSidePanel }) {
                     DocumentName: newRow.DocumentName,
                     Note: newRow.Note,
                     IDBinder: newRow.IDBinder || null,  // Odesíláme null, pokud není vybrán žádný šanon
-                    Page: parseInt(newRow.Page) || null  // Odesíláme null, pokud není zadána stránka
+                    Page: parseInt(newRow.Page) || null,  // Odesíláme null, pokud není zadána stránka¨
+                    IDDruhDokumentu: newRow.IDDruhDokumentu || null,
+                    DatumDokumentu: newRow.DatumDokumentu || null
                 }, {
                     headers: {
                         Authorization: localStorage.getItem('token'),
@@ -161,7 +179,9 @@ function DocumentManagement({ toggleSidePanel }) {
                     DocumentName: '',
                     Note: '',
                     IDBinder: '',
-                    Page: ''
+                    Page: '',
+                    IDDruhDokumentu: '',
+                    DatumDokumentu: null
                 });
             } catch (error) {
                 console.error("Error saving new document:", error.response?.data || error.message);
@@ -252,16 +272,64 @@ function DocumentManagement({ toggleSidePanel }) {
         return binder ? binder.Name : '';
     };
 
+    const handleDruhDokumentuChange = async (docId, IDDruhDokumentu) => {
+        try {
+            const updatedDoc = documents.find(doc => doc.ID === docId);
+            if (!updatedDoc) {
+                console.error(`Document not found with ID: ${docId}`);
+                return;
+            }
+
+            const updatedDocData = { ...updatedDoc, IDDruhDokumentu: IDDruhDokumentu };
+
+            await axios.put(`http://localhost:8080/updateFile/${docId}`, updatedDocData, {
+                headers: {
+                    Authorization: localStorage.getItem('token'),
+                    'Content-Type': 'application/json'
+                },
+            });
+
+            setDocuments(prev => prev.map(doc =>
+                doc.ID === docId ? updatedDocData : doc
+            ));
+
+            console.log('Druh dokumentu updated successfully');
+        } catch (error) {
+            console.error("Error updating druh dokumentu:", error.response?.data || error.message);
+        }
+    };
+
+    const getDruhDokumentuName = (IDDruhDokumentu) => {
+        const druhDokumentu = druhyDokumentu.find(d => d.IDDruhDokumentu === IDDruhDokumentu);
+        return druhDokumentu ? druhDokumentu.DruhDokumentu : '';
+    };
+
+    const handleDateChange = (date, docId) => {
+        if (docId === 'new') {
+            setNewRow(prev => ({ ...prev, DatumDokumentu: date }));
+        } else {
+            const formattedDate = date ? date.toISOString() : null;
+            handleCellUpdate(docId, 'DatumDokumentu', formattedDate);
+        }
+    };
+
     const applyFilter = (doc, column, filter) => {
         let value;
         if (column === 'IDBinder') {
             value = getBinderName(doc[column]);
-        } else {
+        } else if (column === 'IDDruhDokumentu') {
+            value = getDruhDokumentuName(doc[column]);
+        } else if (column === 'DatumDokumentu') {
+            value = doc[column] ? new Date(doc[column]) : null;
+        }
+        else {
             value = doc[column];
         }
 
         if (value === null || value === undefined) {
             value = '';
+        } else if (column !== 'DatumDokumentu') {
+            value = value.toString();
         } else {
             value = value.toString();
         }
@@ -282,6 +350,12 @@ function DocumentManagement({ toggleSidePanel }) {
                 return !value || value.trim() === '';
             case 'isNotEmpty':
                 return value && value.trim() !== '';
+            case 'before':
+                return value && value < new Date(filter.value);
+            case 'after':
+                return value && value > new Date(filter.value);
+            case 'on':
+                return value && value.toDateString() === new Date(filter.value).toDateString();
             default:
                 return true;
         }
@@ -299,12 +373,16 @@ function DocumentManagement({ toggleSidePanel }) {
             // Apply global search
             if (searchTerm) {
                 const binderName = getBinderName(doc.IDBinder);
+                const druhDokumentuName = getDruhDokumentuName(doc.IDDruhDokumentu);
+                const datumDokumentu = doc.DatumDokumentu ? new Date(doc.DatumDokumentu).toLocaleDateString() : '';
                 return (
                     doc.DocumentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     doc.Note.toLowerCase().includes(searchTerm.toLowerCase()) ||
                     new Date(doc.CreatedAt).toLocaleDateString().toLowerCase().includes(searchTerm.toLowerCase()) ||
                     binderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    (doc.Page && doc.Page.toString().toLowerCase().includes(searchTerm.toLowerCase()))
+                    (doc.Page && doc.Page.toString().toLowerCase().includes(searchTerm.toLowerCase())) ||
+                    druhDokumentuName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    datumDokumentu.toLowerCase().includes(searchTerm.toLowerCase())
                 );
             }
 
@@ -320,6 +398,12 @@ function DocumentManagement({ toggleSidePanel }) {
                 if (sorting.column === 'IDBinder') {
                     aValue = getBinderName(aValue);
                     bValue = getBinderName(bValue);
+                } else if (sorting.column === 'IDDruhDokumentu') {
+                    aValue = getDruhDokumentuName(aValue);
+                    bValue = getDruhDokumentuName(bValue);
+                } else if (sorting.column === 'DatumDokumentu') {
+                    aValue = aValue ? new Date(aValue) : null;
+                    bValue = bValue ? new Date(bValue) : null;
                 }
 
                 if (aValue < bValue) return sorting.direction === 'asc' ? -1 : 1;
@@ -329,7 +413,7 @@ function DocumentManagement({ toggleSidePanel }) {
         }
 
         return result;
-    }, [documents, binders, searchTerm, activeFilters, sorting]);
+    }, [documents, binders, druhyDokumentu, searchTerm, activeFilters, sorting]);
 
 
     const paginatedDocuments = useMemo(() => {
@@ -427,6 +511,28 @@ function DocumentManagement({ toggleSidePanel }) {
         }
     };
 
+    const formatDate = (dateString) => {
+        if (!dateString || dateString === "0001-01-01T00:00:00" || dateString === null) return null;
+        const date = new Date(dateString);
+        return isNaN(date.getTime()) ? null : date;
+    };
+
+    const CustomDatePicker = ({ selected, onChange, placeholderText }) => (
+        <DatePicker
+            selected={selected}
+            onChange={onChange}
+            dateFormat="dd/MM/yyyy"
+            placeholderText={placeholderText}
+            className="custom-datepicker"
+            popperClassName="custom-datepicker-popper"
+            popperPlacement="bottom-start"
+            showYearDropdown
+            scrollableYearDropdown
+            yearDropdownItemNumber={15}
+            isClearable={true}
+        />
+    );
+
 
     return (
         <div className="document-management">
@@ -497,6 +603,24 @@ function DocumentManagement({ toggleSidePanel }) {
                                 currentSort={sorting.column === 'Page' ? sorting.direction : null}
                             />
                         </th>
+                        <th>
+                            Druh dokumentu
+                            <ColumnFilter
+                                column="IDDruhDokumentu"
+                                onFilterChange={handleFilterChange}
+                                onSortChange={handleSortChange}
+                                currentSort={sorting.column === 'IDDruhDokumentu' ? sorting.direction : null}
+                            />
+                        </th>
+                        <th>
+                            Datum dokumentu
+                            <ColumnFilter
+                                column="DatumDokumentu"
+                                onFilterChange={handleFilterChange}
+                                onSortChange={handleSortChange}
+                                currentSort={sorting.column === 'DatumDokumentu' ? sorting.direction : null}
+                            />
+                        </th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -537,6 +661,21 @@ function DocumentManagement({ toggleSidePanel }) {
                                             value={newRow.Page}
                                             onChange={(e) => handleNewRowChange('Page', e.target.value)}
                                             placeholder="Enter page"
+                                        />
+                                    </td>
+                                    <td width={120}>
+                                        <ComboboxWithSearchDruhyDokumentu
+                                            druhyDokumentu={druhyDokumentu}
+                                            selectedDruh={newRow.IDDruhDokumentu}
+                                            onDruhDokumentuChange={(IDDruhDokumentu) => handleNewRowChange('IDDruhDokumentu', IDDruhDokumentu)}
+                                            highlightText={(text) => text}
+                                        />
+                                    </td>
+                                    <td width={120}>
+                                        <CustomDatePicker
+                                            selected={newRow.DatumDokumentu}
+                                            onChange={(date) => handleDateChange(date, 'new')}
+                                            placeholderText="Vyberte datum"
                                         />
                                     </td>
                                     <td>
@@ -586,6 +725,22 @@ function DocumentManagement({ toggleSidePanel }) {
                                             value={doc.Page || ''}
                                             onChange={(e) => handleInputChange(doc.ID, 'Page', e.target.value)}
                                             onBlur={(e) => handleCellUpdate(doc.ID, 'Page', e.target.value)}
+                                        />
+                                    </td>
+
+                                    <td width={120}>
+                                        <ComboboxWithSearchDruhyDokumentu
+                                            druhyDokumentu={druhyDokumentu}
+                                            selectedDruh={doc.IDDruhDokumentu}
+                                            onDruhDokumentuChange={(IDDruhDokumentu) => handleDruhDokumentuChange(doc.ID, IDDruhDokumentu)}
+                                            highlightText={(text) => highlightText(text, searchTerm)}
+                                        />
+                                    </td>
+                                    <td width={120}>
+                                        <CustomDatePicker
+                                            selected={doc.DatumDokumentu ? new Date(doc.DatumDokumentu) : null}
+                                            onChange={(date) => handleDateChange(date, doc.ID)}
+                                            placeholderText="Vyberte datum"
                                         />
                                     </td>
                                     <td>

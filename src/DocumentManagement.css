@@ -309,3 +309,40 @@ tr:hover .eye-icon {
     cursor: pointer;
   }
 
+  /*date picker*/
+
+  .custom-datepicker {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.custom-datepicker-popper {
+    z-index: 9999 !important;
+}
+
+.react-datepicker {
+    font-family: Arial, sans-serif;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+.react-datepicker__header {
+    background-color: #f0f0f0;
+    border-bottom: 1px solid #ccc;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    padding-top: 8px;
+}
+
+.react-datepicker__day--selected {
+    background-color: #216ba5;
+    color: white;
+}
+
+.react-datepicker__day:hover {
+    background-color: #f0f0f0;
+}
+
