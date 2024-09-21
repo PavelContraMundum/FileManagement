@@ -11,7 +11,7 @@ import ComboboxWithSearchDruhyDokumentu from './ComboboxWithSearchDruhyDokumentu
 
 const ColumnFilter = ({ column, onFilterChange, onSortChange, currentSort }) => {
     const [showFilter, setShowFilter] = useState(false);
-    const [filterType, setFilterType] = useState('contains');
+    const [filterType, setFilterType] = useState(column === 'DatumDokumentu' ? 'before' : 'contains');
     const [filterValue, setFilterValue] = useState('');
 
     const filterTypes = column === 'DatumDokumentu'
@@ -43,7 +43,12 @@ const ColumnFilter = ({ column, onFilterChange, onSortChange, currentSort }) => 
 
     return (
         <div className="column-filter">
-            {/* ... (existing JSX) */}
+            <div className="filter-icons">
+                <FaFilter onClick={() => setShowFilter(!showFilter)} className="filter-icon" />
+                {currentSort === 'asc' && <FaSortUp onClick={handleSortChange} className="sort-icon" />}
+                {currentSort === 'desc' && <FaSortDown onClick={handleSortChange} className="sort-icon" />}
+                {!currentSort && <FaSort onClick={handleSortChange} className="sort-icon" />}
+            </div>
             {showFilter && (
                 <div className="filter-dropdown">
                     <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="filter-select">
@@ -321,41 +326,43 @@ function DocumentManagement({ toggleSidePanel }) {
             value = getDruhDokumentuName(doc[column]);
         } else if (column === 'DatumDokumentu') {
             value = doc[column] ? new Date(doc[column]) : null;
-        }
-        else {
+        } else {
             value = doc[column];
         }
 
         if (value === null || value === undefined) {
             value = '';
         } else if (column !== 'DatumDokumentu') {
-            value = value.toString();
-        } else {
-            value = value.toString();
+            value = value.toString().toLowerCase();
         }
+
+        const filterValue = filter.value && filter.value instanceof Date
+            ? filter.value
+            : new Date(filter.value);
+
         switch (filter.type) {
             case 'is':
-                return value === filter.value;
+                return value === filter.value.toLowerCase();
             case 'isNot':
-                return value !== filter.value;
+                return value !== filter.value.toLowerCase();
             case 'contains':
-                return value.toLowerCase().includes(filter.value.toLowerCase());
+                return value.includes(filter.value.toLowerCase());
             case 'doesNotContain':
-                return !value.toLowerCase().includes(filter.value.toLowerCase());
+                return !value.includes(filter.value.toLowerCase());
             case 'startsWith':
-                return value.toLowerCase().startsWith(filter.value.toLowerCase());
+                return value.startsWith(filter.value.toLowerCase());
             case 'endsWith':
-                return value.toLowerCase().endsWith(filter.value.toLowerCase());
+                return value.endsWith(filter.value.toLowerCase());
             case 'isEmpty':
                 return !value || value.trim() === '';
             case 'isNotEmpty':
                 return value && value.trim() !== '';
             case 'before':
-                return value && value < new Date(filter.value);
+                return value && value < filterValue;
             case 'after':
-                return value && value > new Date(filter.value);
+                return value && value > filterValue;
             case 'on':
-                return value && value.toDateString() === new Date(filter.value).toDateString();
+                return value && value.toDateString() === filterValue.toDateString();
             default:
                 return true;
         }
@@ -375,20 +382,23 @@ function DocumentManagement({ toggleSidePanel }) {
                 const binderName = getBinderName(doc.IDBinder);
                 const druhDokumentuName = getDruhDokumentuName(doc.IDDruhDokumentu);
                 const datumDokumentu = doc.DatumDokumentu ? new Date(doc.DatumDokumentu).toLocaleDateString() : '';
+                const searchTermLower = searchTerm.toLowerCase();
+
                 return (
-                    doc.DocumentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    doc.Note.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    new Date(doc.CreatedAt).toLocaleDateString().toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    binderName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    (doc.Page && doc.Page.toString().toLowerCase().includes(searchTerm.toLowerCase())) ||
-                    druhDokumentuName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    datumDokumentu.toLowerCase().includes(searchTerm.toLowerCase())
+                    doc.DocumentName.toLowerCase().includes(searchTermLower) ||
+                    doc.Note.toLowerCase().includes(searchTermLower) ||
+                    new Date(doc.CreatedAt).toLocaleDateString().toLowerCase().includes(searchTermLower) ||
+                    binderName.toLowerCase().includes(searchTermLower) ||
+                    (doc.Page && doc.Page.toString().toLowerCase().includes(searchTermLower)) ||
+                    druhDokumentuName.toLowerCase().includes(searchTermLower) ||
+                    datumDokumentu.toLowerCase().includes(searchTermLower)
                 );
             }
 
             return true;
         });
-        //Apply sorting
+
+        // Apply sorting
         if (sorting.column) {
             result.sort((a, b) => {
                 let aValue = a[sorting.column];
