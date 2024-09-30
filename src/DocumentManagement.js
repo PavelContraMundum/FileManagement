@@ -4,9 +4,9 @@ import { FaEye, FaPlus, FaFilter, FaSort, FaSortUp, FaSortDown, FaSearch, FaTras
 import DatePicker from "react-datepicker";
 import './DocumentManagement.css';
 import "react-datepicker/dist/react-datepicker.css";
-import ComboboxWithSearch from './ComboboxWithSearch';
-import ComboboxWithSearchDruhyDokumentu from './ComboboxWithSearchDruhyDokumentu';
-
+import ComboboxWithSearch from './ComboboxWithSearch'; //komponentu možno odstranit, nahrazena univzálním comboboxem
+import ComboboxWithSearchDruhyDokumentu from './ComboboxWithSearchDruhyDokumentu'; //komponentu možno odstranit, nahrazena univzálním comboboxem
+import ComboboxWithSearchUniversal from './ComboboxWithSearchUniversal';
 
 
 const ColumnFilter = ({ column, onFilterChange, onSortChange, currentSort }) => {
@@ -659,12 +659,19 @@ function DocumentManagement({ toggleSidePanel }) {
                                     </td>
                                     <td>{new Date(newRow.CreatedAt).toLocaleDateString()}</td>
                                     <td width={80}>
-                                        {/* Použití comboboxu s vyhledáváním pro nový řádek */}
-                                        <ComboboxWithSearch
-                                            binders={binders}
-                                            selectedBinder={newRow.IDBinder}
-                                            onBinderChange={(binderId) => handleNewRowChange('IDBinder', binderId)}
+
+                                        <ComboboxWithSearchUniversal
+                                            options={binders}
+                                            selectedOption={newRow.IDBinder}
+                                            onOptionChange={(binderId) => handleNewRowChange('IDBinder', binderId)}
+                                            placeholder="Vyberte šanon"
+                                            searchPlaceholder="Hledat šanony..."
+                                            noOptionsText="Žádné šanony nenalezeny"
+                                            getOptionLabel={(binder) => binder.Name}
+                                            getOptionValue={(binder) => binder.ID}
                                         />
+
+
                                     </td>
                                     <td>
                                         <input
@@ -674,11 +681,15 @@ function DocumentManagement({ toggleSidePanel }) {
                                         />
                                     </td>
                                     <td width={120}>
-                                        <ComboboxWithSearchDruhyDokumentu
-                                            druhyDokumentu={druhyDokumentu}
-                                            selectedDruh={newRow.IDDruhDokumentu}
-                                            onDruhDokumentuChange={(IDDruhDokumentu) => handleNewRowChange('IDDruhDokumentu', IDDruhDokumentu)}
-                                            highlightText={(text) => text}
+                                        <ComboboxWithSearchUniversal
+                                            options={druhyDokumentu}
+                                            selectedOption={newRow.IDDruhDokumentu}
+                                            onOptionChange={(IDDruhDokumentu) => handleNewRowChange('IDDruhDokumentu', IDDruhDokumentu)}
+                                            placeholder="Vyberte druh dokumentu"
+                                            searchPlaceholder="Hledat druhy dokumentů..."
+                                            noOptionsText="Žádné druhy dokumentů nenalezeny"
+                                            getOptionLabel={(druh) => druh.DruhDokumentu}
+                                            getOptionValue={(druh) => druh.IDDruhDokumentu}
                                         />
                                     </td>
                                     <td width={120}>
@@ -722,11 +733,15 @@ function DocumentManagement({ toggleSidePanel }) {
                                     </td>
                                     <td>{new Date(doc.CreatedAt).toLocaleDateString()}</td>
                                     <td width={120}>
-                                        <ComboboxWithSearch
-                                            binders={binders}
-                                            selectedBinder={doc.IDBinder}
-                                            onBinderChange={(binderId) => handleBinderChange(doc.ID, binderId)}
-                                            highlightText={(text) => highlightText(text, searchTerm)}
+                                        <ComboboxWithSearchUniversal
+                                            options={binders}
+                                            selectedOption={doc.IDBinder}
+                                            onOptionChange={(binderId) => handleBinderChange(doc.ID, binderId)}
+                                            placeholder="Vyberte šanon"
+                                            searchPlaceholder="Hledat šanony..."
+                                            noOptionsText="Žádné šanony nenalezeny"
+                                            getOptionLabel={(binder) => binder.Name}
+                                            getOptionValue={(binder) => binder.ID}
                                         />
 
                                     </td>
@@ -739,11 +754,15 @@ function DocumentManagement({ toggleSidePanel }) {
                                     </td>
 
                                     <td width={120}>
-                                        <ComboboxWithSearchDruhyDokumentu
-                                            druhyDokumentu={druhyDokumentu}
-                                            selectedDruh={doc.IDDruhDokumentu}
-                                            onDruhDokumentuChange={(IDDruhDokumentu) => handleDruhDokumentuChange(doc.ID, IDDruhDokumentu)}
-                                            highlightText={(text) => highlightText(text, searchTerm)}
+                                        <ComboboxWithSearchUniversal
+                                            options={druhyDokumentu}
+                                            selectedOption={doc.IDDruhDokumentu}
+                                            onOptionChange={(IDDruhDokumentu) => handleDruhDokumentuChange(doc.ID, IDDruhDokumentu)}
+                                            placeholder="Vyberte druh dokumentu"
+                                            searchPlaceholder="Hledat druhy dokumentů..."
+                                            noOptionsText="Žádné druhy dokumentů nenalezeny"
+                                            getOptionLabel={(druh) => druh.DruhDokumentu}
+                                            getOptionValue={(druh) => druh.IDDruhDokumentu}
                                         />
                                     </td>
                                     <td width={120}>
