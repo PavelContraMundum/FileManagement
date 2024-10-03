@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
-import { FaEye, FaPlus, FaFilter, FaSort, FaSortUp, FaSortDown, FaSearch, FaTrash, FaDownload } from 'react-icons/fa';
+import { FaEye, FaPlus, FaFilter, FaSort, FaSortUp, FaSortDown, FaSearch, FaTrash, FaDownload, FaPencilAlt, FaCheck } from 'react-icons/fa';
 import DatePicker from "react-datepicker";
 import './DocumentManagement.css';
 import "react-datepicker/dist/react-datepicker.css";
@@ -13,6 +13,7 @@ const ColumnFilter = ({ column, onFilterChange, onSortChange, currentSort }) => 
     const [showFilter, setShowFilter] = useState(false);
     const [filterType, setFilterType] = useState(column === 'DatumDokumentu' ? 'before' : 'contains');
     const [filterValue, setFilterValue] = useState('');
+
 
     const filterTypes = column === 'DatumDokumentu'
         ? [
@@ -40,6 +41,7 @@ const ColumnFilter = ({ column, onFilterChange, onSortChange, currentSort }) => 
         const nextSort = currentSort === 'asc' ? 'desc' : currentSort === 'desc' ? null : 'asc';
         onSortChange(column, nextSort);
     };
+
 
     return (
         <div className="column-filter">
@@ -105,12 +107,17 @@ function DocumentManagement({ toggleSidePanel }) {
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(30);
     const [druhyDokumentu, setDruhyDokumentu] = useState([]);
+    const [localDocuments, setLocalDocuments] = useState([]);
 
     useEffect(() => {
         fetchDocuments();
         fetchBinders();
         fetchDruhyDokumentu();
     }, []);
+
+    useEffect(() => {
+        setLocalDocuments(documents);
+    }, [documents]);
 
     const fetchDocuments = async () => {
         try {
@@ -309,14 +316,13 @@ function DocumentManagement({ toggleSidePanel }) {
         return druhDokumentu ? druhDokumentu.DruhDokumentu : '';
     };
 
+
     const handleDateChange = (date, docId) => {
-        if (docId === 'new') {
-            setNewRow(prev => ({ ...prev, DatumDokumentu: date }));
-        } else {
-            const formattedDate = date ? date.toISOString() : null;
-            handleCellUpdate(docId, 'DatumDokumentu', formattedDate);
-        }
+        setLocalDocuments(prevDocs => prevDocs.map(doc =>
+            doc.ID === docId ? { ...doc, DatumDokumentu: date } : doc
+        ));
     };
+
 
     const applyFilter = (doc, column, filter) => {
         let value;
@@ -440,6 +446,50 @@ function DocumentManagement({ toggleSidePanel }) {
     const handleRowsPerPageChange = (event) => {
         setRowsPerPage(Number(event.target.value));
         setCurrentPage(1);  // Reset to first page when changing rows per page
+    };
+
+
+    const handleEditToggle = (id) => {
+        if (editingRowId === id) {
+            // If we're finishing editing, reset local changes
+            setLocalDocuments(documents);
+        }
+        setEditingRowId(editingRowId === id ? null : id);
+    };
+
+
+    const handleSaveEdit = async (id) => {
+        try {
+            const docToUpdate = localDocuments.find(doc => doc.ID === id);
+
+            const formattedDoc = {
+                ...docToUpdate,
+                Page: docToUpdate.Page ? parseInt(docToUpdate.Page) : null,
+                DatumDokumentu: docToUpdate.DatumDokumentu ? new Date(docToUpdate.DatumDokumentu).toISOString() : null
+            };
+
+            console.log('Sending data to server:', formattedDoc);
+
+            const response = await axios.put(`http://localhost:8080/updateFile/${id}`, formattedDoc, {
+                headers: {
+                    Authorization: localStorage.getItem('token'),
+                    'Content-Type': 'application/json'
+                },
+            });
+
+            console.log('Server response:', response.data);
+
+            if (response.status === 200) {
+                setEditingRowId(null);
+                // Update the main documents state
+                setDocuments(prevDocs => prevDocs.map(doc => doc.ID === id ? { ...doc, ...formattedDoc } : doc));
+            } else {
+                throw new Error(`Unexpected response status: ${response.status}`);
+            }
+        } catch (error) {
+            console.error("Error saving document:", error);
+            // ... (error handling remains the same)
+        }
     };
 
 
@@ -704,92 +754,129 @@ function DocumentManagement({ toggleSidePanel }) {
                                     </td>
                                 </tr>
                             )}
-                            {paginatedDocuments.map((doc) => (
-                                <tr key={doc.ID}
-                                    onMouseEnter={() => setHoveredRowId(doc.ID)}
-                                    onMouseLeave={() => setHoveredRowId(null)}
-                                >
-                                    <td width={300} className="document-name-cell">
-                                        <input
-                                            value={doc.DocumentName || ''}
-                                            onChange={(e) => handleInputChange(doc.ID, 'DocumentName', e.target.value)}
-                                            onBlur={(e) => handleCellUpdate(doc.ID, 'DocumentName', e.target.value)}
-                                        />
-                                        {doc.ID && doc.ID !== 'new' && hoveredRowId === doc.ID && (
-                                            <FaEye
-                                                className="eye-icon"
-                                                onClick={() => toggleSidePanel(doc)}
+
+
+                            {paginatedDocuments.map((doc) => {
+                                const localDoc = localDocuments.find(d => d.ID === doc.ID) || doc;
+                                return (
+                                    <tr key={doc.ID}
+                                        onMouseEnter={() => setHoveredRowId(doc.ID)}
+                                        onMouseLeave={() => setHoveredRowId(null)}
+                                    >
+                                        <td width={300} className="document-name-cell">
+                                            {editingRowId === doc.ID ? (
+                                                <input
+                                                    value={doc.DocumentName || ''}
+                                                    onChange={(e) => handleInputChange(doc.ID, 'DocumentName', e.target.value)}
+                                                />
+                                            ) : (
+                                                highlightText(doc.DocumentName, searchTerm)
+                                            )}
+                                            {doc.ID && doc.ID !== 'new' && hoveredRowId === doc.ID && (
+                                                <FaEye
+                                                    className="eye-icon"
+                                                    onClick={() => toggleSidePanel(doc)}
+                                                />
+                                            )}
+                                        </td>
+                                        <td width={300}>
+                                            {editingRowId === doc.ID ? (
+                                                <input
+                                                    value={doc.Note || ''}
+                                                    onChange={(e) => handleInputChange(doc.ID, 'Note', e.target.value)}
+                                                />
+                                            ) : (
+                                                highlightText(doc.Note, searchTerm)
+                                            )}
+                                        </td>
+                                        <td>{highlightText(new Date(doc.CreatedAt).toLocaleDateString(), searchTerm)}</td>
+                                        <td width={120}>
+                                            {editingRowId === doc.ID ? (
+                                                <ComboboxWithSearchUniversal
+                                                    options={binders}
+                                                    selectedOption={doc.IDBinder}
+                                                    onOptionChange={(binderId) => handleBinderChange(doc.ID, binderId)}
+                                                    placeholder="Vyberte šanon"
+                                                    searchPlaceholder="Hledat šanony..."
+                                                    noOptionsText="Žádné šanony nenalezeny"
+                                                    getOptionLabel={(binder) => binder.Name}
+                                                    getOptionValue={(binder) => binder.ID}
+                                                />
+                                            ) : (
+                                                highlightText(getBinderName(doc.IDBinder), searchTerm)
+                                            )}
+                                        </td>
+                                        <td width={100}>
+                                            {editingRowId === doc.ID ? (
+                                                <input
+                                                    value={doc.Page || ''}
+                                                    onChange={(e) => handleInputChange(doc.ID, 'Page', e.target.value)}
+                                                />
+                                            ) : (
+                                                highlightText(doc.Page, searchTerm)
+                                            )}
+                                        </td>
+                                        <td width={120}>
+                                            {editingRowId === doc.ID ? (
+                                                <ComboboxWithSearchUniversal
+                                                    options={druhyDokumentu}
+                                                    selectedOption={doc.IDDruhDokumentu}
+                                                    onOptionChange={(IDDruhDokumentu) => handleDruhDokumentuChange(doc.ID, IDDruhDokumentu)}
+                                                    placeholder="Vyberte druh dokumentu"
+                                                    searchPlaceholder="Hledat druhy dokumentů..."
+                                                    noOptionsText="Žádné druhy dokumentů nenalezeny"
+                                                    getOptionLabel={(druh) => druh.DruhDokumentu}
+                                                    getOptionValue={(druh) => druh.IDDruhDokumentu}
+                                                />
+                                            ) : (
+                                                highlightText(getDruhDokumentuName(doc.IDDruhDokumentu), searchTerm)
+                                            )}
+                                        </td>
+                                        <td width={120}>
+                                            {editingRowId === doc.ID ? (
+                                                <CustomDatePicker
+                                                    selected={localDoc.DatumDokumentu ? new Date(localDoc.DatumDokumentu) : null}
+                                                    onChange={(date) => handleDateChange(date, doc.ID)}
+                                                    placeholderText="Vyberte datum"
+                                                />
+                                            ) : (
+                                                highlightText(localDoc.DatumDokumentu ? new Date(localDoc.DatumDokumentu).toLocaleDateString() : '', searchTerm)
+                                            )}
+                                        </td>
+                                        <td>
+                                            {editingRowId === doc.ID ? (
+                                                <FaCheck
+                                                    className="action-icon save-icon"
+                                                    onClick={() => handleSaveEdit(doc.ID)}
+                                                    title="Save changes"
+                                                />
+                                            ) : (
+                                                <FaPencilAlt
+                                                    className="action-icon edit-icon"
+                                                    onClick={() => handleEditToggle(doc.ID)}
+                                                    title="Edit document"
+                                                />
+                                            )}
+                                            <FaTrash
+                                                className="action-icon delete-icon"
+                                                onClick={() => handleDeleteDocument(doc.ID)}
+                                                title="Delete document"
                                             />
-                                        )}
-                                    </td>
-                                    <td width={300}>
+                                            <FaDownload
+                                                className="action-icon download-icon"
+                                                onClick={() => handleDownloadPDF(doc.ID, doc.DocumentName)}
+                                                title="Download PDF"
+                                            />
+                                        </td>
+                                    </tr>
 
-                                        <input
-                                            value={doc.Note || ''}
-                                            onChange={(e) => handleInputChange(doc.ID, 'Note', e.target.value)}
-                                            onBlur={(e) => handleCellUpdate(doc.ID, 'Note', e.target.value)}
-                                        />
-
-                                    </td>
-                                    <td>{new Date(doc.CreatedAt).toLocaleDateString()}</td>
-                                    <td width={120}>
-                                        <ComboboxWithSearchUniversal
-                                            options={binders}
-                                            selectedOption={doc.IDBinder}
-                                            onOptionChange={(binderId) => handleBinderChange(doc.ID, binderId)}
-                                            placeholder="Vyberte šanon"
-                                            searchPlaceholder="Hledat šanony..."
-                                            noOptionsText="Žádné šanony nenalezeny"
-                                            getOptionLabel={(binder) => binder.Name}
-                                            getOptionValue={(binder) => binder.ID}
-                                        />
-
-                                    </td>
-                                    <td width={100}>
-                                        <input
-                                            value={doc.Page || ''}
-                                            onChange={(e) => handleInputChange(doc.ID, 'Page', e.target.value)}
-                                            onBlur={(e) => handleCellUpdate(doc.ID, 'Page', e.target.value)}
-                                        />
-                                    </td>
-
-                                    <td width={120}>
-                                        <ComboboxWithSearchUniversal
-                                            options={druhyDokumentu}
-                                            selectedOption={doc.IDDruhDokumentu}
-                                            onOptionChange={(IDDruhDokumentu) => handleDruhDokumentuChange(doc.ID, IDDruhDokumentu)}
-                                            placeholder="Vyberte druh dokumentu"
-                                            searchPlaceholder="Hledat druhy dokumentů..."
-                                            noOptionsText="Žádné druhy dokumentů nenalezeny"
-                                            getOptionLabel={(druh) => druh.DruhDokumentu}
-                                            getOptionValue={(druh) => druh.IDDruhDokumentu}
-                                        />
-                                    </td>
-                                    <td width={120}>
-                                        <CustomDatePicker
-                                            selected={doc.DatumDokumentu ? new Date(doc.DatumDokumentu) : null}
-                                            onChange={(date) => handleDateChange(date, doc.ID)}
-                                            placeholderText="Vyberte datum"
-                                        />
-                                    </td>
-                                    <td>
-                                        <FaTrash
-                                            className="action-icon delete-icon"
-                                            onClick={() => handleDeleteDocument(doc.ID)}
-                                            title="Delete document"
-                                        />
-                                        <FaDownload
-                                            className="action-icon download-icon"
-                                            onClick={() => handleDownloadPDF(doc.ID, doc.DocumentName)}
-                                            title="Download PDF"
-                                        />
-                                    </td>
-                                </tr>
-                            ))}
+                                )
+                            })}
                         </>
                     )}
                 </tbody>
             </table>
+
 
             <div className="pagination">
                 <div style={{ marginLeft: '5px', marginRight: "auto" }}>Celkem {documents.length} dokumentů</div>

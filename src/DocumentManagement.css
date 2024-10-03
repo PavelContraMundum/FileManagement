@@ -346,3 +346,12 @@ tr:hover .eye-icon {
     background-color: #f0f0f0;
 }
 
+.edit-icon, .save-icon {
+  cursor: pointer;
+  margin-right: 5px;
+}
+
+.edit-icon:hover, .save-icon:hover {
+  color: #007bff;
+}
+
