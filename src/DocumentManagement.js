@@ -1,11 +1,9 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { FaEye, FaPlus, FaFilter, FaSort, FaSortUp, FaSortDown, FaSearch, FaTrash, FaDownload, FaPencilAlt, FaCheck } from 'react-icons/fa';
 import DatePicker from "react-datepicker";
 import './DocumentManagement.css';
 import "react-datepicker/dist/react-datepicker.css";
-import ComboboxWithSearch from './ComboboxWithSearch'; //komponentu možno odstranit, nahrazena univzálním comboboxem
-import ComboboxWithSearchDruhyDokumentu from './ComboboxWithSearchDruhyDokumentu'; //komponentu možno odstranit, nahrazena univzálním comboboxem
 import ComboboxWithSearchUniversal from './ComboboxWithSearchUniversal';
 
 
@@ -44,39 +42,41 @@ const ColumnFilter = ({ column, onFilterChange, onSortChange, currentSort }) => 
 
 
     return (
-        <div className="column-filter">
-            <div className="filter-icons">
-                <FaFilter onClick={() => setShowFilter(!showFilter)} className="filter-icon" />
-                {currentSort === 'asc' && <FaSortUp onClick={handleSortChange} className="sort-icon" />}
-                {currentSort === 'desc' && <FaSortDown onClick={handleSortChange} className="sort-icon" />}
-                {!currentSort && <FaSort onClick={handleSortChange} className="sort-icon" />}
-            </div>
-            {showFilter && (
-                <div className="filter-dropdown">
-                    <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="filter-select">
-                        {filterTypes.map((type) => (
-                            <option key={type.value} value={type.value}>{type.label}</option>
-                        ))}
-                    </select>
-                    {column === 'DatumDokumentu' ? (
-                        <DatePicker
-                            selected={filterValue ? new Date(filterValue) : null}
-                            onChange={(date) => setFilterValue(date)}
-                            dateFormat="dd/MM/yyyy"
-                            placeholderText="Vyberte datum"
-                        />
-                    ) : (
-                        <input
-                            type="text"
-                            value={filterValue}
-                            onChange={(e) => setFilterValue(e.target.value)}
-                            placeholder="Filter value"
-                            className="filter-input"
-                        />
-                    )}
-                    <button onClick={handleFilterChange} className="filter-button">Apply</button>
+        <div className="filter-container">
+            <div className="column-filter">
+                <div className="filter-icons">
+                    <FaFilter onClick={() => setShowFilter(!showFilter)} className="filter-icon" />
+                    {currentSort === 'asc' && <FaSortUp onClick={handleSortChange} className="sort-icon" />}
+                    {currentSort === 'desc' && <FaSortDown onClick={handleSortChange} className="sort-icon" />}
+                    {!currentSort && <FaSort onClick={handleSortChange} className="sort-icon" />}
                 </div>
-            )}
+                {showFilter && (
+                    <div className="filter-dropdown">
+                        <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="filter-select">
+                            {filterTypes.map((type) => (
+                                <option key={type.value} value={type.value}>{type.label}</option>
+                            ))}
+                        </select>
+                        {column === 'DatumDokumentu' ? (
+                            <DatePicker
+                                selected={filterValue ? new Date(filterValue) : null}
+                                onChange={(date) => setFilterValue(date)}
+                                dateFormat="dd/MM/yyyy"
+                                placeholderText="Vyberte datum"
+                            />
+                        ) : (
+                            <input
+                                type="text"
+                                value={filterValue}
+                                onChange={(e) => setFilterValue(e.target.value)}
+                                placeholder="Filter value"
+                                className="filter-input"
+                            />
+                        )}
+                        <button onClick={handleFilterChange} className="filter-button">Apply</button>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
@@ -108,6 +108,16 @@ function DocumentManagement({ toggleSidePanel }) {
     const [rowsPerPage, setRowsPerPage] = useState(30);
     const [druhyDokumentu, setDruhyDokumentu] = useState([]);
     const [localDocuments, setLocalDocuments] = useState([]);
+    const [columnWidths, setColumnWidths] = useState({
+        DocumentName: 300,
+        Note: 300,
+        CreatedAt: 150,
+        IDBinder: 120,
+        Page: 100,
+        IDDruhDokumentu: 120,
+        DatumDokumentu: 120,
+        Actions: 150
+    });
 
     useEffect(() => {
         fetchDocuments();
@@ -118,6 +128,7 @@ function DocumentManagement({ toggleSidePanel }) {
     useEffect(() => {
         setLocalDocuments(documents);
     }, [documents]);
+
 
     const fetchDocuments = async () => {
         try {
@@ -594,6 +605,31 @@ function DocumentManagement({ toggleSidePanel }) {
     );
 
 
+    const startResizing = (e, columnName) => {
+        e.preventDefault();
+        const startX = e.pageX;
+        const startWidth = columnWidths[columnName];
+
+        const doDrag = (e) => {
+            const newWidth = startWidth + e.pageX - startX;
+            setColumnWidths(prev => ({
+                ...prev,
+                [columnName]: Math.max(50, newWidth) // Set a minimum width of 50px
+            }));
+        };
+
+        const stopDrag = () => {
+            document.removeEventListener('mousemove', doDrag);
+            document.removeEventListener('mouseup', stopDrag);
+        };
+
+        document.addEventListener('mousemove', doDrag);
+        document.addEventListener('mouseup', stopDrag);
+    };
+
+
+
+
     return (
         <div className="document-management">
             <div className="toolbar">
@@ -618,67 +654,103 @@ function DocumentManagement({ toggleSidePanel }) {
             <table className="notion-table">
                 <thead>
                     <tr>
-                        <th>
-                            Název
-                            <ColumnFilter
-                                column="DocumentName"
-                                onFilterChange={handleFilterChange}
-                                onSortChange={handleSortChange}
-                                currentSort={sorting.column === 'DocumentName' ? sorting.direction : null}
+                        <th style={{ width: columnWidths.DocumentName }}>
+                            <span>Název</span>
+                            <div className="column-filter">
+                                <ColumnFilter
+                                    column="DocumentName"
+                                    onFilterChange={handleFilterChange}
+                                    onSortChange={handleSortChange}
+                                    currentSort={sorting.column === 'DocumentName' ? sorting.direction : null}
+                                /></div>
+                            <div
+                                className="resizer"
+                                onMouseDown={(e) => startResizing(e, 'DocumentName')}
                             />
                         </th>
-                        <th>
-                            Poznámka
-                            <ColumnFilter
-                                column="Note"
-                                onFilterChange={handleFilterChange}
-                                onSortChange={handleSortChange}
-                                currentSort={sorting.column === 'Note' ? sorting.direction : null}
+                        <th style={{ width: columnWidths.Note }}>
+                            <span>Poznámka</span>
+                            <div className="column-filter">
+                                <ColumnFilter
+                                    column="Note"
+                                    onFilterChange={handleFilterChange}
+                                    onSortChange={handleSortChange}
+                                    currentSort={sorting.column === 'Note' ? sorting.direction : null}
+                                /></div>
+                            <div
+                                className="resizer"
+                                onMouseDown={(e) => startResizing(e, 'Note')}
                             />
                         </th>
-                        <th>
-                            Datum vytvoření
-                            <ColumnFilter
-                                column="CreatedAt"
-                                onFilterChange={handleFilterChange}
-                                onSortChange={handleSortChange}
-                                currentSort={sorting.column === 'CreatedAt' ? sorting.direction : null}
+                        <th style={{ width: columnWidths.CreatedAt }}>
+                            <span>Datum vytvoření</span>
+                            <div className="column-filter">
+                                <ColumnFilter
+                                    column="CreatedAt"
+                                    onFilterChange={handleFilterChange}
+                                    onSortChange={handleSortChange}
+                                    currentSort={sorting.column === 'CreatedAt' ? sorting.direction : null}
+                                /></div>
+
+                            <div
+                                className="resizer"
+                                onMouseDown={(e) => startResizing(e, 'CreatedAt')}
                             />
                         </th>
-                        <th>
-                            Šanon
-                            <ColumnFilter
-                                column="IDBinder"
-                                onFilterChange={handleFilterChange}
-                                onSortChange={handleSortChange}
-                                currentSort={sorting.column === 'IDBinder' ? sorting.direction : null}
+                        <th style={{ width: columnWidths.IDBinder }}>
+                            <span>Šanon</span>
+                            <div className="column-filter">
+                                <ColumnFilter
+                                    column="IDBinder"
+                                    onFilterChange={handleFilterChange}
+                                    onSortChange={handleSortChange}
+                                    currentSort={sorting.column === 'IDBinder' ? sorting.direction : null}
+                                /></div>
+                            <div
+                                className="resizer"
+                                onMouseDown={(e) => startResizing(e, 'IDBinder')}
                             />
                         </th>
-                        <th>
-                            Strana
-                            <ColumnFilter
-                                column="Page"
-                                onFilterChange={handleFilterChange}
-                                onSortChange={handleSortChange}
-                                currentSort={sorting.column === 'Page' ? sorting.direction : null}
+                        <th style={{ width: columnWidths.Page }}>
+                            <span>Strana</span>
+                            <div className="column-filter">
+                                <ColumnFilter
+                                    column="Page"
+                                    onFilterChange={handleFilterChange}
+                                    onSortChange={handleSortChange}
+                                    currentSort={sorting.column === 'Page' ? sorting.direction : null}
+                                /></div>
+                            <div
+                                className="resizer"
+                                onMouseDown={(e) => startResizing(e, 'Page')}
                             />
                         </th>
-                        <th>
-                            Druh dokumentu
-                            <ColumnFilter
-                                column="IDDruhDokumentu"
-                                onFilterChange={handleFilterChange}
-                                onSortChange={handleSortChange}
-                                currentSort={sorting.column === 'IDDruhDokumentu' ? sorting.direction : null}
+                        <th style={{ width: columnWidths.IDDruhDokumentu }}>
+                            <span>Druh dokumentu</span>
+                            <div className="column-filter">
+                                <ColumnFilter
+                                    column="IDDruhDokumentu"
+                                    onFilterChange={handleFilterChange}
+                                    onSortChange={handleSortChange}
+                                    currentSort={sorting.column === 'IDDruhDokumentu' ? sorting.direction : null}
+                                /></div>
+                            <div
+                                className="resizer"
+                                onMouseDown={(e) => startResizing(e, 'IDDruhDokumentu')}
                             />
                         </th>
-                        <th>
-                            Datum dokumentu
+                        <th style={{ width: columnWidths.DatumDokumentu }}>
+                            <span>Datum dokumentu</span>
+                            <div className="column-filter">
                             <ColumnFilter
                                 column="DatumDokumentu"
                                 onFilterChange={handleFilterChange}
                                 onSortChange={handleSortChange}
                                 currentSort={sorting.column === 'DatumDokumentu' ? sorting.direction : null}
+                            /></div>
+                            <div
+                                className="resizer"
+                                onMouseDown={(e) => startResizing(e, 'DatumDokumentu')}
                             />
                         </th>
                         <th>Actions</th>
@@ -779,7 +851,7 @@ function DocumentManagement({ toggleSidePanel }) {
                                                 />
                                             )}
                                         </td>
-                                        <td width={300}>
+                                        <td width={300} className="document-name-cell">
                                             {editingRowId === doc.ID ? (
                                                 <input
                                                     value={doc.Note || ''}
@@ -789,6 +861,7 @@ function DocumentManagement({ toggleSidePanel }) {
                                                 highlightText(doc.Note, searchTerm)
                                             )}
                                         </td>
+
                                         <td>{highlightText(new Date(doc.CreatedAt).toLocaleDateString(), searchTerm)}</td>
                                         <td width={120}>
                                             {editingRowId === doc.ID ? (

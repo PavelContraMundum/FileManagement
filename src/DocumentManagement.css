@@ -18,8 +18,33 @@
     color: #37352f;
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 10;
+    padding-right: 24px;
+    
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 24px;
+   
 }
+
+.notion-table th > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+} 
+
+.resizer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  background: rgba(0, 0, 0, 0.5);
+  cursor: col-resize;
+  user-select: none;
+  touch-action: none;
+}
+
 
 .document-name {
     position: relative;
@@ -48,7 +73,12 @@
 }
 
 .document-name-cell {
-    position: relative;
+  max-width: 250px;
+   position: relative;
+   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
 }
 
 .eye-icon {
@@ -183,8 +213,9 @@ tr:hover .eye-icon {
   }
   
   .column-filter {
-    position: relative;
-    display: inline-block;
+    position: static;
+    display: inline-flex;
+    align-items: center;
     margin-left: 8px;
   }
   
@@ -212,6 +243,10 @@ tr:hover .eye-icon {
     padding: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
+
+  .filter-container {
+    position: absolute;
+}
   
   .filter-select,
   .filter-input {
