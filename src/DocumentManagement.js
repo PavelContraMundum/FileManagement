@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { FaEye, FaPlus, FaFilter, FaSort, FaSortUp, FaSortDown, FaSearch, FaTrash, FaDownload, FaPencilAlt, FaCheck } from 'react-icons/fa';
 import DatePicker from "react-datepicker";
@@ -84,6 +84,7 @@ const ColumnFilter = ({ column, onFilterChange, onSortChange, currentSort }) => 
 
 
 function DocumentManagement({ toggleSidePanel }) {
+
     const [documents, setDocuments] = useState([]);
     const [binders, setBinders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -118,6 +119,8 @@ function DocumentManagement({ toggleSidePanel }) {
         DatumDokumentu: 120,
         Actions: 150
     });
+    const [showTooltip, setShowTooltip] = useState(false);
+    const [tooltipRowId, setTooltipRowID] = useState(null);
 
     useEffect(() => {
         fetchDocuments();
@@ -628,6 +631,12 @@ function DocumentManagement({ toggleSidePanel }) {
     };
 
 
+    const handleMouseOver = (event, id) => {
+        const element = event.currentTarget;
+        const isTextTruncated = element.scrollWidth > element.clientWidth;
+        setTooltipRowID(id)
+        setShowTooltip(isTextTruncated); // Zobraz tooltip, pokud je text oříznutý
+    };
 
 
     return (
@@ -740,14 +749,14 @@ function DocumentManagement({ toggleSidePanel }) {
                             />
                         </th>
                         <th style={{ width: columnWidths.DatumDokumentu }}>
-                            <span>Datum dokumentu</span>
+                            <span>Dat. dokumentu</span>
                             <div className="column-filter">
-                            <ColumnFilter
-                                column="DatumDokumentu"
-                                onFilterChange={handleFilterChange}
-                                onSortChange={handleSortChange}
-                                currentSort={sorting.column === 'DatumDokumentu' ? sorting.direction : null}
-                            /></div>
+                                <ColumnFilter
+                                    column="DatumDokumentu"
+                                    onFilterChange={handleFilterChange}
+                                    onSortChange={handleSortChange}
+                                    currentSort={sorting.column === 'DatumDokumentu' ? sorting.direction : null}
+                                /></div>
                             <div
                                 className="resizer"
                                 onMouseDown={(e) => startResizing(e, 'DatumDokumentu')}
@@ -792,7 +801,6 @@ function DocumentManagement({ toggleSidePanel }) {
                                             getOptionLabel={(binder) => binder.Name}
                                             getOptionValue={(binder) => binder.ID}
                                         />
-
 
                                     </td>
                                     <td>
@@ -851,16 +859,41 @@ function DocumentManagement({ toggleSidePanel }) {
                                                 />
                                             )}
                                         </td>
-                                        <td width={300} className="document-name-cell">
+                                        <td width={300} className="document-name-cell" onMouseOver={(e) => handleMouseOver(e, doc.ID)}>
+
                                             {editingRowId === doc.ID ? (
                                                 <input
                                                     value={doc.Note || ''}
                                                     onChange={(e) => handleInputChange(doc.ID, 'Note', e.target.value)}
                                                 />
                                             ) : (
+
                                                 highlightText(doc.Note, searchTerm)
                                             )}
+
+                                            {showTooltip && tooltipRowId == doc.ID && (
+                                                <div
+                                                    style={{
+
+                                                        backgroundColor: '#D3D3D3',
+                                                        color: 'white',
+                                                        padding: '5px',
+                                                        borderRadius: '4px',
+                                                        top: '100%',
+                                                        left: 0,
+                                                        zIndex: 1,
+                                                        whiteSpace: 'pre-line',
+                                                        overflowWrap: 'break-word',
+                                                        backdropFilter: 'blur(1rem)',
+                                                        boxShadow: '0 0 1rem rgba(0, 0, 0, 0.2)'
+                                                    }}
+                                                >
+                                                    {doc.Note}
+                                                </div>
+                                            )}
+
                                         </td>
+
 
                                         <td>{highlightText(new Date(doc.CreatedAt).toLocaleDateString(), searchTerm)}</td>
                                         <td width={120}>
@@ -974,7 +1007,10 @@ function DocumentManagement({ toggleSidePanel }) {
             </div>
         </div>
 
+
     );
+
+
 }
 
 export default DocumentManagement;

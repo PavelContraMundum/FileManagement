@@ -222,6 +222,7 @@ tr:hover .eye-icon {
   .filter-icons {
     display: flex;
     align-items: center;
+    margin-bottom: 10px;
   }
   
   .filter-icon,
