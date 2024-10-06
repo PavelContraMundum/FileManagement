@@ -119,8 +119,10 @@ function DocumentManagement({ toggleSidePanel }) {
         DatumDokumentu: 120,
         Actions: 150
     });
-    const [showTooltip, setShowTooltip] = useState(false);
+    const [showNoteTooltip, setShowNoteTooltip] = useState(false);
+    const [showNameTooltip, setShowNameTooltip] = useState(false);
     const [tooltipRowId, setTooltipRowID] = useState(null);
+    const [isEditing, setIsEditing] = useState(false)
 
     useEffect(() => {
         fetchDocuments();
@@ -469,6 +471,7 @@ function DocumentManagement({ toggleSidePanel }) {
             setLocalDocuments(documents);
         }
         setEditingRowId(editingRowId === id ? null : id);
+        setIsEditing(true)
     };
 
 
@@ -504,6 +507,7 @@ function DocumentManagement({ toggleSidePanel }) {
             console.error("Error saving document:", error);
             // ... (error handling remains the same)
         }
+        setIsEditing(false)
     };
 
 
@@ -631,12 +635,24 @@ function DocumentManagement({ toggleSidePanel }) {
     };
 
 
-    const handleMouseOver = (event, id) => {
+    const handleMouseOver = (event, id, column) => {
+        console.log("event: ", event)
         const element = event.currentTarget;
         const isTextTruncated = element.scrollWidth > element.clientWidth;
         setTooltipRowID(id)
-        setShowTooltip(isTextTruncated); // Zobraz tooltip, pokud je text oříznutý
+        if (column == 'Note') {
+            setShowNoteTooltip(isTextTruncated); // Zobraz tooltip, pokud je text oříznutý
+        }
+
+        else if (column == 'Name') {
+            setShowNameTooltip(isTextTruncated); // Zobraz tooltip, pokud je text oříznutý
+        }
     };
+
+    const handleMouseLeave = () => {
+        setShowNoteTooltip(null)
+        setShowNameTooltip(null)
+    }
 
 
     return (
@@ -843,7 +859,7 @@ function DocumentManagement({ toggleSidePanel }) {
                                         onMouseEnter={() => setHoveredRowId(doc.ID)}
                                         onMouseLeave={() => setHoveredRowId(null)}
                                     >
-                                        <td width={300} className="document-name-cell">
+                                        <td width={300} className="document-name-cell" onMouseOver={(e) => handleMouseOver(e, doc.ID, 'Name')} onMouseLeave={handleMouseLeave}>
                                             {editingRowId === doc.ID ? (
                                                 <input
                                                     value={doc.DocumentName || ''}
@@ -858,8 +874,32 @@ function DocumentManagement({ toggleSidePanel }) {
                                                     onClick={() => toggleSidePanel(doc)}
                                                 />
                                             )}
+
+                                            {showNameTooltip && tooltipRowId == doc.ID && !isEditing && (
+                                                <div
+                                                    style={{
+                                                        maxWidth: '265px',
+                                                        backgroundColor: '#D3D3D3',
+                                                        color: 'white',
+                                                        padding: '5px',
+                                                        borderRadius: '4px',
+                                                        top: '100%',
+                                                        left: 0,
+                                                        zIndex: 1,
+                                                        whiteSpace: 'pre-line',
+                                                        overflowWrap: 'break-word',
+                                                        backdropFilter: 'blur(1rem)',
+                                                        boxShadow: '0 0 1rem rgba(0, 0, 0, 0.2)'
+                                                    }}
+                                                >
+                                                    {doc.DocumentName}
+                                                </div>
+                                            )}
+
+
+
                                         </td>
-                                        <td width={300} className="document-name-cell" onMouseOver={(e) => handleMouseOver(e, doc.ID)}>
+                                        <td width={300} className="document-name-cell" onMouseOver={(e) => handleMouseOver(e, doc.ID, 'Note')} onMouseLeave={handleMouseLeave}>
 
                                             {editingRowId === doc.ID ? (
                                                 <input
@@ -871,7 +911,7 @@ function DocumentManagement({ toggleSidePanel }) {
                                                 highlightText(doc.Note, searchTerm)
                                             )}
 
-                                            {showTooltip && tooltipRowId == doc.ID && (
+                                            {showNoteTooltip && tooltipRowId == doc.ID && !isEditing && (
                                                 <div
                                                     style={{
 
